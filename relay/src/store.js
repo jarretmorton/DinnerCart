@@ -76,6 +76,7 @@ export function stripRecipe(recipe) {
 const PREF_FIELDS = {
   store: (v) => v === null || (typeof v === 'object' && typeof v.locationId === 'string'),
   pantry: (v) => Array.isArray(v) && v.every((s) => typeof s === 'string'),
+  leaveOut: (v) => Array.isArray(v) && v.every((s) => typeof s === 'string'),
   modality: (v) => v === 'PICKUP' || v === 'DELIVERY',
   minRating: (v) => typeof v === 'number' && v >= 0 && v <= 5,
   maxMinutes: (v) => v === null || (Number.isInteger(v) && v > 0 && v <= 600),
@@ -92,7 +93,7 @@ export async function prefsUpdate(env, patch) {
     const valid = PREF_FIELDS[key];
     if (!valid) throw new HttpError(400, 'bad_pref', `Unknown preference "${key}".`);
     if (!valid(value)) throw new HttpError(400, 'bad_pref', `Invalid value for "${key}".`);
-    current[key] = key === 'pantry' ? value.map((s) => s.trim()).filter(Boolean).slice(0, 300) : value;
+    current[key] = Array.isArray(value) ? value.map((s) => s.trim()).filter(Boolean).slice(0, 300) : value;
   }
   current.updatedAt = new Date().toISOString();
   await putJson(env, 'prefs', current);

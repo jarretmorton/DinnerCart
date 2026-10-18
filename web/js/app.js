@@ -6,6 +6,7 @@ import { MAX_CANDIDATES, estimateTotal, heuristicPick, resolveIngredients, setPa
 import * as storage from './storage.js';
 import { summarizeNeeds } from './units.js';
 import { escapeHtml as h, money } from './util.js';
+import { IDEAS, LEAVE_OUT_EXAMPLES, rotatePlaceholder } from './suggestions.js';
 import { VERSION } from './version.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -449,6 +450,7 @@ function renderSettings() {
   for (const k of ['relayUrl', 'relayPassword', 'geminiKey']) form.elements[k].value = settings[k] || '';
   const pf = $('#prefs-form');
   pf.elements.pantry.value = (prefs.pantry || []).join('\n');
+  pf.elements.leaveOut.value = (prefs.leaveOut || []).join('\n');
   pf.elements.modality.value = prefs.modality || 'PICKUP';
   pf.elements.minRating.value = String(prefs.minRating ?? storage.DEFAULT_MIN_RATING);
   pf.elements.maxMinutes.value = prefs.maxMinutes ? String(prefs.maxMinutes) : '';
@@ -649,10 +651,12 @@ $('#settings-form').addEventListener('submit', async (e) => {
 $('#prefs-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const f = e.target.elements;
-  const pantry = f.pantry.value.split('\n').map((s) => s.trim()).filter(Boolean);
+  const lines = (text) => text.split('\n').map((s) => s.trim()).filter(Boolean);
+  const pantry = lines(f.pantry.value);
   guarded(null, async () => {
     await savePrefsRemote({
       pantry,
+      leaveOut: lines(f.leaveOut.value),
       modality: f.modality.value,
       minRating: Number(f.minRating.value),
       maxMinutes: Number(f.maxMinutes.value) || null,
@@ -679,6 +683,21 @@ renderModelToggle();
 fillCriteria($('#criteria'), state.criteria);
 applySearchDefaults();
 $('#criteria').addEventListener('change', () => { findFormTouched = true; });
+
+// Rotating suggestions. Tapping a field's label fills in what it suggests:
+// the idea showing for "What sounds good?", the household list for "What to leave out".
+const ideas = rotatePlaceholder($('#criteria').elements.wants, () => IDEAS);
+const leaveOutList = () => (prefs.leaveOut?.length ? prefs.leaveOut : LEAVE_OUT_EXAMPLES);
+const leaveOutIdeas = rotatePlaceholder($('#criteria').elements.exclude, leaveOutList);
+document.querySelectorAll('[data-suggest]').forEach((label) => label.addEventListener('click', (e) => {
+  e.preventDefault();
+  const form = $('#criteria');
+  const field = label.dataset.suggest;
+  form.elements[field].value = field === 'wants'
+    ? ideas.current()
+    : (prefs.leaveOut?.length ? prefs.leaveOut.join(', ') : leaveOutIdeas.current());
+  form.elements[field].focus();
+}));
 handleOAuthReturn();
 window.addEventListener('hashchange', route);
 route();

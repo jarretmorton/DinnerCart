@@ -24,8 +24,8 @@
     <!-- ============ FIND ============ -->
     <section id="view-find" class="view" hidden>
       <form id="criteria" class="card form">
-        <label class="wide">What sounds good?
-          <input name="wants" placeholder="e.g. cozy chicken thigh dinner, something with lots of vegetables" autocomplete="off">
+        <label class="wide"><span class="suggest" data-suggest="wants" title="Tap to use the idea shown">What sounds good?</span>
+          <input name="wants" autocomplete="off">
         </label>
         <label>Max total time
           <select name="maxMinutes">
@@ -34,7 +34,9 @@
           </select>
         </label>
         <label>Servings <input name="servings" type="number" min="1" max="20" value="4"></label>
-        <label class="wide">Leave out <input name="exclude" placeholder="comma separated, e.g. mushrooms, cilantro"></label>
+        <label class="wide"><span class="suggest" data-suggest="exclude" title="Tap to fill in your household list">What to leave out</span>
+          <input name="exclude" autocomplete="off">
+        </label>
         <div class="wide actions">
           <button type="submit" class="primary" id="search-btn">Find</button>
           <button type="submit" id="recommend-btn" title="Ideas based on your saved Recipes, plus anything filled in above">Recommendations</button>
@@ -119,6 +121,9 @@
             <option value="0">Any</option><option value="3">3★ and up</option><option value="3.5">3.5★ and up</option>
             <option value="4">4★ and up</option><option value="4.5">4.5★ and up</option>
           </select>
+        </label>
+        <label class="wide">What to leave out (one per line; tap "What to leave out" on Find to fill these in)
+          <textarea name="leaveOut" rows="4" placeholder="mushrooms&#10;cilantro"></textarea>
         </label>
 
         <h3 class="wide subhead">Pantry</h3>
