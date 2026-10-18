@@ -690,7 +690,7 @@ applySearchDefaults();
 $('#criteria').addEventListener('change', () => { findFormTouched = true; });
 
 // Rotating suggestions. Tapping a field's label fills in what it suggests:
-// the idea showing for "What sounds good?", the household list for "What to leave out".
+// the idea showing for "What sounds good?", the household list for "What to leave out?".
 const ideas = rotatePlaceholder($('#criteria').elements.wants, () => IDEAS);
 const leaveOutList = () => (prefs.leaveOut?.length ? prefs.leaveOut : LEAVE_OUT_EXAMPLES);
 const leaveOutIdeas = rotatePlaceholder($('#criteria').elements.exclude, leaveOutList);

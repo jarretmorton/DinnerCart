@@ -109,7 +109,7 @@ app's Settings page and stored only in that browser's localStorage.
 
 ## Using it
 
-1. **Find**: describe what you want, then set time, servings and what to leave out. The boxes rotate suggestions; tap a box's label to use the idea shown (or, for "What to leave out", your household list from Settings). Recipes rated below the household minimum (Settings, default 4★) are skipped; unrated ones are kept.
+1. **Find**: describe what you want, then set time, servings and what to leave out. The boxes rotate suggestions; tap a box's label to use the idea shown (or, for "What to leave out?", your household list from Settings). Recipes rated below the household minimum (Settings, default 4★) are skipped; unrated ones are kept.
    Or press **Recommendations** (no fields needed): Gemini looks at your saved Recipes, plus anything you filled in, and finds new dishes in a similar vein, skipping ones you've already saved.
 2. Pick recipes, and save good ones to the shared **Recipes** tab. You can also add any recipe by pasting its link.
 3. **Cart**: adjust servings per recipe (quantities scale), then press **Match ingredients**.
