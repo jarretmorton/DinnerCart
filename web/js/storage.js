@@ -4,6 +4,7 @@
 const SETTINGS_KEY = 'dinnercart.settings';
 const STATE_KEY = 'dinnercart.state';
 const PREFS_KEY = 'dinnercart.prefs';
+const IDEAS_KEY = 'dinnercart.ideas';
 
 export const DEFAULT_PANTRY = [
   'salt', 'black pepper', 'olive oil', 'vegetable oil', 'cooking spray', 'all-purpose flour', 'granulated sugar',
@@ -43,3 +44,7 @@ export const loadPrefs = () => ({
   ...read(PREFS_KEY, {}),
 });
 export const savePrefs = (p) => write(PREFS_KEY, p);
+
+// Today's Gemini-generated "What sounds good?" ideas: {date, ideas}.
+export const loadIdeas = () => read(IDEAS_KEY, null);
+export const saveIdeas = (v) => write(IDEAS_KEY, v);

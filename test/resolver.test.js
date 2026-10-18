@@ -215,3 +215,20 @@ test('recommendations: taste profile in prompts, saved recipes skipped', async (
   assert.deepEqual(kept.map((r) => r.name), ['Enchiladas']);
   assert.equal(rejected[0].reason, 'already in your Recipes');
 });
+
+test('daily ideas: prompt uses season and taste, output is cleaned', async () => {
+  const { generateIdeas, todayKey } = await import('../web/js/suggestions.js');
+  let prompt;
+  const reply = ['1. Miso salmon bowls.', 'miso salmon bowls', 'x', '15-minute garlic shrimp', '- one-pan gnocchi', ...Array.from({ length: 10 }, (_, i) => `idea number ${i}`)];
+  const gemini = { json: async (p) => { prompt = p; return { ideas: reply }; } };
+  const ideas = await generateIdeas(gemini, { liked: [{ name: 'Fish Tacos', cuisine: ['Mexican'] }], now: new Date(2026, 9, 18) });
+  assert.match(prompt, /It's October/);
+  assert.match(prompt, /Fish Tacos/);
+  assert.equal(ideas[0], 'Miso salmon bowls', 'numbering and trailing period stripped');
+  assert.equal(ideas.filter((s) => s.toLowerCase() === 'miso salmon bowls').length, 1, 'deduped');
+  assert.ok(!ideas.includes('x'), 'too-short dropped');
+  assert.ok(ideas.includes('15-minute garlic shrimp'), 'leading numbers that are part of the idea survive');
+  assert.ok(ideas.includes('one-pan gnocchi'), 'bullet stripped');
+  assert.equal(await generateIdeas({ json: async () => ({ ideas: ['only', 'three', 'ideas'] }) }), null, 'too few -> keep built-in');
+  assert.equal(todayKey(new Date(2026, 0, 5)), '2026-01-05');
+});

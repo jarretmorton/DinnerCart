@@ -1,12 +1,12 @@
 // DinnerCart UI controller. Plain DOM; views are re-rendered from `state`.
-import { createGemini, createModelSwitch } from './gemini.js';
+import { LIGHT_MODEL, createGemini, createModelSwitch } from './gemini.js';
 import { createRelay, productSearcher } from './relay.js';
 import { findRecipes, scaleFor } from './recipes.js';
 import { MAX_CANDIDATES, estimateTotal, heuristicPick, resolveIngredients, setPackages } from './resolver.js';
 import * as storage from './storage.js';
 import { summarizeNeeds } from './units.js';
 import { escapeHtml as h, money } from './util.js';
-import { IDEAS, LEAVE_OUT_EXAMPLES, rotatePlaceholder } from './suggestions.js';
+import { IDEAS, LEAVE_OUT_EXAMPLES, generateIdeas, rotatePlaceholder, todayKey } from './suggestions.js';
 import { VERSION } from './version.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -691,7 +691,22 @@ $('#criteria').addEventListener('change', () => { findFormTouched = true; });
 
 // Rotating suggestions. Tapping a field's label fills in what it suggests:
 // the idea showing for "What sounds good?", the household list for "What to leave out?".
-const ideas = rotatePlaceholder($('#criteria').elements.wants, () => IDEAS);
+// Gemini writes a fresh batch once a day per device (light model, so it
+// doesn't use up the strong model's limit); built-in ideas until then.
+let dailyIdeas = storage.loadIdeas();
+const ideas = rotatePlaceholder($('#criteria').elements.wants, () => (dailyIdeas?.ideas?.length ? dailyIdeas.ideas : IDEAS));
+async function refreshDailyIdeas() {
+  if (!configured() || dailyIdeas?.date === todayKey()) return;
+  try {
+    const fresh = await generateIdeas(createGemini({ apiKey: settings.geminiKey, model: LIGHT_MODEL }), { liked: library || [] });
+    if (!fresh) return;
+    dailyIdeas = { date: todayKey(), ideas: fresh };
+    storage.saveIdeas(dailyIdeas);
+    ideas.refresh();
+  } catch (err) {
+    console.warn('daily ideas failed; using built-in list', err);
+  }
+}
 const leaveOutList = () => (prefs.leaveOut?.length ? prefs.leaveOut : LEAVE_OUT_EXAMPLES);
 const leaveOutIdeas = rotatePlaceholder($('#criteria').elements.exclude, leaveOutList);
 document.querySelectorAll('[data-suggest]').forEach((label) => label.addEventListener('click', (e) => {
@@ -708,5 +723,5 @@ window.addEventListener('hashchange', route);
 route();
 if (configured()) {
   loadRemotePrefs().then(() => { applySearchDefaults(); if (location.hash === '#settings') renderSettings(); if (location.hash === '#cart') renderCart(); });
-  relay().library().then((r) => { library = r.recipes; if (location.hash !== '#cart' && location.hash !== '#settings') route(); }).catch(() => {});
+  relay().library().then((r) => { library = r.recipes; if (location.hash !== '#cart' && location.hash !== '#settings') route(); }).catch(() => {}).finally(refreshDailyIdeas);
 }
