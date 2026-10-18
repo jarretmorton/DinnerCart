@@ -195,14 +195,15 @@ button:disabled { opacity: 0.5; cursor: default; }
 @media (max-width: 520px) {
   main { padding: 12px; }
   .top { flex-wrap: nowrap; padding: 8px 12px; }
-  .brand { display: flex; align-items: baseline; gap: 4px; white-space: nowrap; min-width: 0; font-size: 1.08rem; }
+  .brand { display: flex; align-items: baseline; gap: 4px; white-space: nowrap; min-width: 0; font-size: 1.2rem; }
   /* Version tucks in small next to the name so the title never gets cut off. */
   .version { font-size: 0.56rem; letter-spacing: -0.01em; opacity: 0.9; }
   nav { gap: 0; flex-shrink: 0; }
-  nav a { padding: 7px 7px; font-size: 1.3rem; line-height: 1; }
+  /* Fixed px so the icons don't grow with the phone's text-size setting; the title gets that room. */
+  nav a { padding: 7px; font-size: 21px; line-height: 1; }
   .nav-icon { display: inline-flex; }
   .nav-label { display: none; }
-  nav .badge { top: -2px; right: -2px; }
+  nav .badge { top: -2px; right: -2px; font-size: 11px; line-height: 16px; min-width: 16px; }
   .item { grid-template-columns: 44px 1fr; }
   .item img, .item .noimg { width: 44px; height: 44px; }
   .item .side { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; align-items: center; }
@@ -211,6 +212,6 @@ button:disabled { opacity: 0.5; cursor: default; }
 /* Narrowest phones (or large system text): tighten a bit more. */
 @media (max-width: 380px) {
   .top { padding: 8px 10px; }
-  .brand { font-size: 1rem; gap: 3px; }
-  nav a { padding: 7px 5px; font-size: 1.2rem; }
+  .brand { font-size: 1.12rem; gap: 3px; }
+  nav a { padding: 7px 5px; font-size: 20px; }
 }
