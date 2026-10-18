@@ -11,10 +11,7 @@
 </head>
 <body>
   <header class="top">
-    <div class="brand-row">
-      <a class="brand" href="#find">🛒 DinnerCart <span class="version" id="app-version"></span></a>
-      <button type="button" class="model-pill" id="model-toggle" title="Gemini model: tap to switch"></button>
-    </div>
+    <a class="brand" href="#find">🛒 DinnerCart <span class="version" id="app-version"></span></a>
     <nav>
       <a href="#find" data-nav="find">Find</a>
       <a href="#cart" data-nav="cart">Cart <span class="badge" id="pick-count" hidden></span></a>
@@ -84,9 +81,14 @@
         <label class="wide">Relay URL <input name="relayUrl" type="url" placeholder="https://dinnercart-relay.YOURNAME.workers.dev"></label>
         <label class="wide">Relay password <input name="relayPassword" type="password" autocomplete="current-password"></label>
         <label class="wide">Gemini API key <input name="geminiKey" type="password" autocomplete="off" placeholder="from aistudio.google.com"></label>
-        <label>Strong Gemini model <input name="geminiModel" placeholder="gemini-flash-latest"></label>
-        <label>Light Gemini model <input name="geminiLightModel" placeholder="gemini-flash-lite-latest"></label>
-        <p class="wide hint">Each visit starts on the strong model. If it hits its rate limit, DinnerCart switches to the light one until you reload. The ⚡/🪶 button at the top switches by hand.</p>
+        <fieldset class="wide">
+          <legend>Gemini model</legend>
+          <div class="segmented" role="radiogroup">
+            <label><input type="radio" name="modelTier" value="strong"> ⚡ Strong</label>
+            <label><input type="radio" name="modelTier" value="light"> 🪶 Light</label>
+          </div>
+        </fieldset>
+        <p class="wide hint">Each visit starts on Strong. If Strong hits Gemini's rate limit, this switches to Light by itself until you reload. You can also switch it by hand. Takes effect immediately.</p>
         <div class="wide actions">
           <button type="submit" class="primary">Save</button>
           <button type="button" id="diagnose-btn">Check setup</button>

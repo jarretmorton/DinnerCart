@@ -1,5 +1,5 @@
 // DinnerCart UI controller. Plain DOM; views are re-rendered from `state`.
-import { DEFAULT_MODEL, LIGHT_MODEL, createGemini, createModelSwitch } from './gemini.js';
+import { createGemini, createModelSwitch } from './gemini.js';
 import { createRelay, productSearcher } from './relay.js';
 import { findRecipes, scaleFor } from './recipes.js';
 import { MAX_CANDIDATES, estimateTotal, heuristicPick, resolveIngredients, setPackages } from './resolver.js';
@@ -21,25 +21,15 @@ const persist = () => storage.saveState({ criteria: state.criteria, results: sta
 const configured = () => Boolean(settings.relayUrl && settings.relayPassword && settings.geminiKey);
 const relay = () => createRelay({ url: settings.relayUrl, password: settings.relayPassword });
 // Starts on the strong model every page load; drops to the light one when
-// the strong model is rate limited, or when the header toggle is tapped.
-let modelSwitch;
-function makeModelSwitch() {
-  modelSwitch = createModelSwitch({
-    strong: settings.geminiModel || DEFAULT_MODEL,
-    light: settings.geminiLightModel || LIGHT_MODEL,
-    onChange: (_tier, model, reason) => {
-      renderModelToggle();
-      toast(reason === 'limit' ? `Gemini limit reached. Switched to ${model} until you reload.` : `Using ${model}`);
-    },
-  });
-  renderModelToggle();
-}
+// the strong model is rate limited, or when switched in Settings.
+const modelSwitch = createModelSwitch({
+  onChange: (_tier, _model, reason) => {
+    renderModelToggle();
+    if (reason === 'limit') toast('Gemini limit reached. Switched to the Light model until you reload.');
+  },
+});
 function renderModelToggle() {
-  const btn = $('#model-toggle');
-  const light = modelSwitch.tier === 'light';
-  btn.textContent = light ? '🪶 Light' : '⚡ Strong';
-  btn.classList.toggle('light', light);
-  btn.title = `Gemini model: ${modelSwitch.model}. Tap to switch.`;
+  document.querySelectorAll('[name=modelTier]').forEach((r) => { r.checked = r.value === modelSwitch.tier; });
 }
 const gemini = () => createGemini({ apiKey: settings.geminiKey, model: modelSwitch });
 
@@ -442,7 +432,7 @@ async function addByUrl() {
 
 function renderSettings() {
   const form = $('#settings-form');
-  for (const k of ['relayUrl', 'relayPassword', 'geminiKey', 'geminiModel', 'geminiLightModel']) form.elements[k].value = settings[k] || '';
+  for (const k of ['relayUrl', 'relayPassword', 'geminiKey']) form.elements[k].value = settings[k] || '';
   const pf = $('#prefs-form');
   pf.elements.pantry.value = (prefs.pantry || []).join('\n');
   pf.elements.modality.value = prefs.modality || 'PICKUP';
@@ -588,6 +578,8 @@ document.addEventListener('change', (e) => {
     s.servings = Math.max(1, Number(el.value) || 1);
     persist();
     renderShoppingList();
+  } else if (el.name === 'modelTier') {
+    modelSwitch.set(el.value);
   } else if (el.name === 'store') {
     const store = JSON.parse(el.dataset.store);
     guarded(null, async () => {
@@ -617,11 +609,8 @@ $('#settings-form').addEventListener('submit', async (e) => {
     relayUrl: f.relayUrl.value.trim().replace(/\/+$/, ''),
     relayPassword: f.relayPassword.value,
     geminiKey: f.geminiKey.value.trim(),
-    geminiModel: f.geminiModel.value.trim(),
-    geminiLightModel: f.geminiLightModel.value.trim(),
   };
   storage.saveSettings(settings);
-  makeModelSwitch();
   toast('Saved on this device');
   library = null;
   await loadRemotePrefs();
@@ -650,8 +639,7 @@ function handleOAuthReturn() {
 }
 
 $('#app-version').textContent = `v${VERSION}`;
-makeModelSwitch();
-$('#model-toggle').addEventListener('click', () => modelSwitch.set(modelSwitch.tier === 'strong' ? 'light' : 'strong'));
+renderModelToggle();
 $('#settings-version').textContent = `DinnerCart version ${VERSION}`;
 fillCriteria($('#criteria'), state.criteria);
 handleOAuthReturn();

@@ -28,7 +28,7 @@ function write(key, value) {
   }
 }
 
-export const loadSettings = () => ({ relayUrl: '', relayPassword: '', geminiKey: '', geminiModel: '', geminiLightModel: '', ...read(SETTINGS_KEY, {}) });
+export const loadSettings = () => ({ relayUrl: '', relayPassword: '', geminiKey: '', ...read(SETTINGS_KEY, {}) });
 export const saveSettings = (s) => write(SETTINGS_KEY, s);
 
 export const loadState = () => read(STATE_KEY, {});
