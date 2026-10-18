@@ -4,7 +4,7 @@ import { HttpError, fetchWithTimeout, randomHex } from './http.js';
 import { del, getJson, putJson } from './store.js';
 import { isAllowedReturnUrl } from './auth.js';
 
-const USER_SCOPES = 'cart.basic:write profile.compact';
+const USER_SCOPES = 'cart.basic:write';
 const APP_SCOPES = 'product.compact';
 const USER_KEY = 'kroger:user';
 const APP_KEY = 'kroger:app';

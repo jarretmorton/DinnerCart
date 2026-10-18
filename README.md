@@ -47,7 +47,7 @@ at the end collects them all.
 ### 1. Kroger developer app (do this first; it's the riskiest part)
 
 1. Sign up at <https://developer.kroger.com> and create an application in the **Production** environment.
-2. Scopes: **product.compact**, **cart.basic:write**, **profile.compact**.
+2. API products: **Cart**, **Locations**, **Products** (scopes `cart.basic:write` and `product.compact`). Profile isn't needed.
 3. Redirect URI: `https://dinnercart-relay.<your-subdomain>.workers.dev/kroger/oauth/callback`.
    You'll know the exact Worker URL after the first deploy (step 4). You can edit the URI later.
 4. Save the **client ID** and **client secret**.

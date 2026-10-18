@@ -168,7 +168,7 @@ test('full OAuth round trip then cart add, with refresh', async () => {
 
   const authUrl = new URL(await kroger.startOAuth(env, 'https://relay.example.workers.dev/kroger/oauth/start', 'https://example.github.io/DinnerCart/#cart'));
   assert.equal(authUrl.origin + authUrl.pathname, 'https://api.kroger.com/v1/connect/oauth2/authorize');
-  assert.equal(authUrl.searchParams.get('scope'), 'cart.basic:write profile.compact');
+  assert.equal(authUrl.searchParams.get('scope'), 'cart.basic:write');
   const state = authUrl.searchParams.get('state');
 
   const cb = await kroger.finishOAuth(env, `https://relay.example.workers.dev/kroger/oauth/callback?code=abc&state=${state}`, fetchImpl);
