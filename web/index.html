@@ -83,31 +83,42 @@
         <ul id="diagnostics" class="wide diagnostics"></ul>
       </form>
 
-      <div class="card form">
-        <h2 class="wide">Fred Meyer account</h2>
+      <form id="prefs-form" class="card form">
+        <h2 class="wide">Household (shared)</h2>
+        <p class="wide hint">Saved on the relay, so both of you share these.</p>
+
+        <h3 class="wide subhead">Fred Meyer account</h3>
         <p class="wide hint">One login for the household. The cart is shared; check it in the Fred Meyer app before checkout.</p>
         <p class="wide" id="kroger-status">Status unknown.</p>
         <div class="wide actions">
-          <button id="kroger-connect" class="primary">Connect Fred Meyer</button>
-          <button id="kroger-disconnect">Disconnect</button>
+          <button type="button" id="kroger-connect" class="primary">Connect Fred Meyer</button>
+          <button type="button" id="kroger-disconnect">Disconnect</button>
         </div>
-      </div>
 
-      <form id="prefs-form" class="card form">
-        <h2 class="wide">Household (shared)</h2>
-        <p class="wide hint">Saved on the relay, so both of you see the same store and pantry list.</p>
+        <h3 class="wide subhead">Store</h3>
         <label>Store ZIP <span class="row"><input id="zip" inputmode="numeric" maxlength="5" placeholder="97214"><button type="button" id="zip-btn">Find stores</button></span></label>
+        <label>Cart mode
+          <select name="modality"><option value="PICKUP">Pickup</option><option value="DELIVERY">Delivery</option></select>
+        </label>
+        <div class="wide" id="store-current"></div>
+        <div class="wide" id="store-list"></div>
+
+        <h3 class="wide subhead">Search defaults</h3>
+        <label>Default max time
+          <select name="maxMinutes">
+            <option value="">any</option><option value="20">20 min</option><option value="30">30 min</option>
+            <option value="45">45 min</option><option value="60">1 hour</option>
+          </select>
+        </label>
+        <label>Default servings <input name="servings" type="number" min="1" max="20"></label>
         <label>Minimum recipe rating
           <select name="minRating">
             <option value="0">Any</option><option value="3">3★ and up</option><option value="3.5">3.5★ and up</option>
             <option value="4">4★ and up</option><option value="4.5">4.5★ and up</option>
           </select>
         </label>
-        <label>Cart mode
-          <select name="modality"><option value="PICKUP">Pickup</option><option value="DELIVERY">Delivery</option></select>
-        </label>
-        <div class="wide" id="store-current"></div>
-        <div class="wide" id="store-list"></div>
+
+        <h3 class="wide subhead">Pantry</h3>
         <label class="wide">Pantry staples (never added; one per line)
           <textarea name="pantry" rows="10"></textarea>
         </label>

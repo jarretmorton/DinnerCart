@@ -78,6 +78,8 @@ const PREF_FIELDS = {
   pantry: (v) => Array.isArray(v) && v.every((s) => typeof s === 'string'),
   modality: (v) => v === 'PICKUP' || v === 'DELIVERY',
   minRating: (v) => typeof v === 'number' && v >= 0 && v <= 5,
+  maxMinutes: (v) => v === null || (Number.isInteger(v) && v > 0 && v <= 600),
+  servings: (v) => Number.isInteger(v) && v >= 1 && v <= 40,
 };
 
 export async function prefsGet(env) {

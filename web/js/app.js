@@ -143,7 +143,7 @@ function togglePick(url) {
   } else {
     const recipe = allKnownRecipes().get(url);
     if (!recipe) return;
-    state.selected.push({ recipe, servings: Number(state.criteria?.servings) || recipe.servings || 4 });
+    state.selected.push({ recipe, servings: Number(state.criteria?.servings) || prefs.servings || recipe.servings || storage.DEFAULT_SERVINGS });
   }
   persist();
   route();
@@ -162,12 +162,21 @@ function readCriteria(form) {
   };
 }
 
+// Max time and servings start from the household defaults on every load,
+// unless the user has already edited the form this visit.
+let findFormTouched = false;
+function applySearchDefaults() {
+  if (findFormTouched) return;
+  const form = $('#criteria');
+  const time = form.elements.maxMinutes;
+  time.value = prefs.maxMinutes ? String(prefs.maxMinutes) : '';
+  if (time.selectedIndex < 0) time.value = String(storage.DEFAULT_MAX_MINUTES);
+  form.elements.servings.value = prefs.servings || storage.DEFAULT_SERVINGS;
+}
+
 function fillCriteria(form, c) {
   if (!c) return;
-  for (const name of ['wants', 'servings']) if (c[name] != null) form.elements[name].value = c[name];
-  const time = form.elements.maxMinutes;
-  time.value = c.maxMinutes || '';
-  if (time.selectedIndex < 0) time.value = '30'; // saved value no longer offered
+  if (c.wants != null) form.elements.wants.value = c.wants;
   form.elements.exclude.value = (c.exclude || []).join(', ');
 }
 
@@ -435,6 +444,8 @@ function renderSettings() {
   pf.elements.pantry.value = (prefs.pantry || []).join('\n');
   pf.elements.modality.value = prefs.modality || 'PICKUP';
   pf.elements.minRating.value = String(prefs.minRating ?? storage.DEFAULT_MIN_RATING);
+  pf.elements.maxMinutes.value = prefs.maxMinutes ? String(prefs.maxMinutes) : '';
+  pf.elements.servings.value = prefs.servings || storage.DEFAULT_SERVINGS;
   $('#store-current').innerHTML = prefs.store
     ? `Store: <strong>${h(prefs.store.name)}</strong> <span class="muted small-text">${h(prefs.store.address || '')} · #${h(prefs.store.locationId)}</span>`
     : '<span class="notice">No store chosen yet.</span>';
@@ -471,7 +482,7 @@ async function loadRemotePrefs() {
 
 async function savePrefsRemote(patch) {
   const updated = (await relay().prefsUpdate(patch)).prefs;
-  prefs = { ...prefs, ...updated };
+  prefs = { ...prefs, ...updated, ...patch };
   storage.savePrefs(prefs);
 }
 
@@ -633,7 +644,14 @@ $('#prefs-form').addEventListener('submit', (e) => {
   const f = e.target.elements;
   const pantry = f.pantry.value.split('\n').map((s) => s.trim()).filter(Boolean);
   guarded(null, async () => {
-    await savePrefsRemote({ pantry, modality: f.modality.value, minRating: Number(f.minRating.value) });
+    await savePrefsRemote({
+      pantry,
+      modality: f.modality.value,
+      minRating: Number(f.minRating.value),
+      maxMinutes: Number(f.maxMinutes.value) || null,
+      servings: Math.min(20, Math.max(1, Math.round(Number(f.servings.value) || storage.DEFAULT_SERVINGS))),
+    });
+    applySearchDefaults();
     toast('Household settings saved');
   });
 });
@@ -652,10 +670,12 @@ function handleOAuthReturn() {
 $('#app-version').textContent = `v${VERSION}`;
 renderModelToggle();
 fillCriteria($('#criteria'), state.criteria);
+applySearchDefaults();
+$('#criteria').addEventListener('change', () => { findFormTouched = true; });
 handleOAuthReturn();
 window.addEventListener('hashchange', route);
 route();
 if (configured()) {
-  loadRemotePrefs().then(() => { if (location.hash === '#settings') renderSettings(); if (location.hash === '#cart') renderCart(); });
+  loadRemotePrefs().then(() => { applySearchDefaults(); if (location.hash === '#settings') renderSettings(); if (location.hash === '#cart') renderCart(); });
   relay().library().then((r) => { library = r.recipes; if (location.hash !== '#cart' && location.hash !== '#settings') route(); }).catch(() => {});
 }

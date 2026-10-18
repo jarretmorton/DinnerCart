@@ -104,8 +104,8 @@ app's Settings page and stored only in that browser's localStorage.
 1. Open the site → **Settings**. Enter the relay URL, relay password and Gemini key, then **Save**.
 2. Press **Check setup**. It checks the relay, the Worker secrets, Gemini, and whether Kroger allows direct browser calls (CORS).
 3. Enter your ZIP → **Find stores** → choose your Fred Meyer. This is shared with the household.
-4. Edit the pantry staples list, and the minimum recipe rating if 4★ is too strict. Items on it are never added to the cart.
-5. Press **Connect Fred Meyer** and log in once. The refresh token is stored in Workers KV and shared by both of you.
+4. Under **Household (shared)**, set the search defaults (max time, servings, minimum rating) and edit the pantry staples list. Items on it are never added to the cart.
+5. In the same Household section, press **Connect Fred Meyer** and log in once. The refresh token is stored in Workers KV and shared by both of you.
 
 ## Using it
 
@@ -178,7 +178,7 @@ All routes need `X-Relay-Password`, except the OAuth callback.
 | `GET /kroger/oauth/callback` | (from Kroger) | redirects back to the app |
 | `POST /kroger/disconnect` | | forgets the stored tokens |
 | `GET/POST/DELETE /library` | `{recipe}` / `?id=` | shared saved recipes |
-| `GET/PUT /prefs` | `{prefs: {store, pantry, modality}}` | shared household settings |
+| `GET/PUT /prefs` | `{prefs: {store, pantry, modality, minRating, maxMinutes, servings}}` | shared household settings |
 
 Only the URL, ingredients and metadata of recipes are stored, never the
 instructions. The app links to the source page instead.
