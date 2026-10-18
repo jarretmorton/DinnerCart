@@ -3,6 +3,7 @@
 
 const API = 'https://generativelanguage.googleapis.com/v1beta/models';
 export const DEFAULT_MODEL = 'gemini-flash-latest';
+export const LIGHT_MODEL = 'gemini-flash-lite-latest';
 
 export class GeminiError extends Error {
   constructor(message, status) {
@@ -13,8 +14,31 @@ export class GeminiError extends Error {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Strong/light model pair. Starts strong; `downgrade()` is called when the
+// strong model hits its rate limit. Lives only in memory, so a page reload
+// starts on the strong model again.
+export function createModelSwitch({ strong = DEFAULT_MODEL, light = LIGHT_MODEL, onChange = () => {} } = {}) {
+  let tier = 'strong';
+  const sw = {
+    get tier() { return tier; },
+    get model() { return tier === 'strong' ? strong : light; },
+    // reason: 'manual' (user toggled) or 'limit' (automatic fallback).
+    set(next, reason = 'manual') {
+      if (next === tier || (next !== 'strong' && next !== 'light')) return;
+      tier = next;
+      onChange(tier, sw.model, reason);
+    },
+    downgrade() { sw.set('light', 'limit'); },
+  };
+  return sw;
+}
+
+// `model` is a model id, or a switch from createModelSwitch() to fall back
+// to the light model when the strong one is rate limited.
 export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = globalThis.fetch.bind(globalThis), maxRetries = 4 } = {}) {
   if (!apiKey) throw new GeminiError('Add your Gemini API key in Settings.', 0);
+  const modelSwitch = typeof model === 'object' && model ? model : null;
+  const currentModel = () => (modelSwitch ? modelSwitch.model : model || DEFAULT_MODEL);
 
   // Ask for JSON matching `schema` (OpenAPI-style subset Gemini accepts).
   async function json(prompt, schema, { system, temperature = 0.2 } = {}) {
@@ -25,11 +49,17 @@ export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = global
     if (system) body.systemInstruction = { parts: [{ text: system }] };
 
     for (let attempt = 0; ; attempt++) {
-      const res = await fetchImpl(`${API}/${encodeURIComponent(model || DEFAULT_MODEL)}:generateContent`, {
+      const res = await fetchImpl(`${API}/${encodeURIComponent(currentModel())}:generateContent`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify(body),
       });
+      if (res.status === 429 && modelSwitch?.tier === 'strong') {
+        // Strong model's limit hit: switch to the light model and retry now.
+        modelSwitch.downgrade();
+        attempt--;
+        continue;
+      }
       if ((res.status === 429 || res.status >= 500) && attempt < maxRetries) {
         // Free tier is rate limited per minute; back off and retry.
         const retryAfter = Number(res.headers.get('retry-after')) || 0;
@@ -55,7 +85,7 @@ export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = global
     }
   }
 
-  return { json, model };
+  return { json, get model() { return currentModel(); } };
 }
 
 // Schema helpers to keep prompts readable.

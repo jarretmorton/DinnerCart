@@ -170,3 +170,27 @@ test('search errors are kept on the item instead of looking like "no products"',
   assert.equal(broth.reason, 'search failed');
   assert.equal(items.find((i) => i.name === 'yellow onion').searchError, null);
 });
+
+test('Gemini falls back to the light model on 429 and stays there', async () => {
+  const { createGemini, createModelSwitch } = await import('../web/js/gemini.js');
+  const changes = [];
+  const sw = createModelSwitch({ strong: 'strong-m', light: 'light-m', onChange: (tier, model, reason) => changes.push([tier, model, reason]) });
+  const called = [];
+  const fetchImpl = async (url) => {
+    const model = decodeURIComponent(url.split('/models/')[1].split(':')[0]);
+    called.push(model);
+    if (model === 'strong-m') return new Response('{"error":{"message":"quota"}}', { status: 429 });
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"ok":true}' }] } }] }), { status: 200 });
+  };
+  const g = createGemini({ apiKey: 'k', model: sw, fetchImpl });
+  assert.deepEqual(await g.json('p', {}), { ok: true });
+  assert.deepEqual(called, ['strong-m', 'light-m'], 'retried immediately on the light model');
+  assert.deepEqual(changes, [['light', 'light-m', 'limit']]);
+  await g.json('p', {});
+  assert.deepEqual(called.slice(2), ['light-m'], 'stays on light');
+  sw.set('strong');
+  assert.equal(g.model, 'strong-m');
+  assert.deepEqual(changes.at(-1), ['strong', 'strong-m', 'manual']);
+  // A plain model id still works (eval script) with no switching.
+  assert.equal(createGemini({ apiKey: 'k', model: 'x' }).model, 'x');
+});

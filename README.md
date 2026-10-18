@@ -188,7 +188,7 @@ instructions. The app links to the source page instead.
 - The Kroger cart is write-only (see above). It allows about 5,000 cart calls per day, and DinnerCart uses one call per 25 items.
 - Pages that block bots or have no `schema.org/Recipe` markup are skipped. They're listed under "couldn't be read" with the reason.
 - Free Cloudflare Workers get 10 ms of CPU per request. That's why each recipe page is parsed in its own request.
-- The Gemini free tier is rate-limited per minute. The client backs off and retries on 429.
+- The Gemini free tier is rate-limited. Each visit starts on the strong model (`gemini-flash-latest`). When it hits its limit, the app switches to the light model (`gemini-flash-lite-latest`) until you reload. The ⚡/🪶 button in the header switches by hand, and both models can be changed in Settings.
 
 ## Build plan status
 

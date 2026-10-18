@@ -50,6 +50,9 @@ h3 { font-size: 1rem; margin: 0 0 4px; }
 }
 .brand { font-weight: 700; text-decoration: none; color: var(--text); }
 .version { font-weight: 400; font-size: 0.75rem; color: var(--muted); }
+.brand-row { display: flex; align-items: center; gap: 10px; }
+.model-pill { padding: 3px 10px; border-radius: 14px; font-size: 0.8rem; background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.model-pill.light { background: var(--warn-soft); color: var(--warn); }
 nav { display: flex; gap: 4px; }
 nav a { padding: 6px 10px; border-radius: 8px; text-decoration: none; color: var(--muted); }
 nav a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
