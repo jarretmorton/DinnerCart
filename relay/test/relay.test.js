@@ -266,6 +266,26 @@ test('library and prefs round trip through routes', async () => {
   list = (await (await handle(req('GET', '/library'), env)).json()).recipes;
   assert.equal(list.length, 0);
 
+  // Recently picked: sending to the cart records picks without marking them saved.
+  const legacy = { url: 'https://x.example/legacy', name: 'Old', ingredients: ['a'] };
+  await env.DC_KV.put('library', JSON.stringify([{ ...legacy, id: 'old1', savedAt: '2026-01-01T00:00:00Z' }]));
+  const tacos = { url: 'https://x.example/tacos', name: 'Tacos', ingredients: ['tortillas'] };
+  let res = await (await handle(req('POST', '/library/picked', { body: { recipes: [tacos, legacy] } }), env)).json();
+  const byName = (rs) => Object.fromEntries(rs.map((r) => [r.name, r]));
+  let lib = byName(res.recipes);
+  assert.equal(lib.Tacos.saved, false, 'picked-only is not "saved"');
+  assert.equal(lib.Tacos.pickedCount, 1);
+  assert.ok(lib.Tacos.lastPickedAt);
+  assert.equal(lib.Old.saved, true, 'legacy entries count as saved');
+  assert.equal(lib.Old.pickedCount, 1);
+  assert.equal(lib.Old.savedAt, '2026-01-01T00:00:00Z', 'pick keeps saved info');
+  res = await (await handle(req('POST', '/library/picked', { body: { recipes: [tacos] } }), env)).json();
+  assert.equal(byName(res.recipes).Tacos.pickedCount, 2);
+  const resaved = (await (await handle(req('POST', '/library', { body: { recipe: tacos } }), env)).json()).recipe;
+  assert.equal(resaved.saved, true);
+  assert.equal(resaved.pickedCount, 2, 'saving keeps pick history');
+  assert.equal((await handle(req('POST', '/library/picked', { body: { recipes: [] } }), env)).status, 400);
+
   const put = await handle(req('PUT', '/prefs', { body: { prefs: { pantry: [' salt ', '', 'pepper'], modality: 'DELIVERY' } } }), env);
   assert.deepEqual((await put.json()).prefs.pantry, ['salt', 'pepper']);
   const bad = await handle(req('PUT', '/prefs', { body: { prefs: { modality: 'DRONE' } } }), env);

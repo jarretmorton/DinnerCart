@@ -38,20 +38,52 @@ export async function urlKey(prefix, url) {
 const LIBRARY_KEY = 'library';
 const LIBRARY_MAX = 500;
 
+// Each entry is a recipe plus:
+//   saved          true if someone tapped Save / added it by link
+//   savedAt        when it was saved
+//   lastPickedAt   when it was last sent to the Fred Meyer cart
+//   pickedCount    how many times it has been sent
 export async function libraryList(env) {
-  return (await getJson(env, LIBRARY_KEY)) || [];
+  // Entries from before "recently picked" existed were all saved by hand.
+  return ((await getJson(env, LIBRARY_KEY)) || []).map((r) => ({ ...r, saved: r.saved ?? true }));
 }
 
-export async function librarySave(env, recipe) {
+function checkRecipe(recipe) {
   if (!/^https?:\/\//i.test(recipe?.url || '') || !Array.isArray(recipe.ingredients)) {
     throw new HttpError(400, 'bad_recipe', 'Recipe needs an http(s) url and ingredients.');
   }
-  const id = (await sha256Hex(recipe.url)).slice(0, 16);
-  const list = (await libraryList(env)).filter((r) => r.id !== id);
-  const entry = { ...stripRecipe(recipe), id, savedAt: new Date().toISOString() };
-  list.unshift(entry);
+}
+
+// Insert or update entries (newest first), keeping what's already known
+// about each recipe (saved flag, pick history).
+async function libraryUpsert(env, recipes, update) {
+  const list = await libraryList(env);
+  const out = [];
+  for (const recipe of recipes) {
+    checkRecipe(recipe);
+    const id = (await sha256Hex(recipe.url)).slice(0, 16);
+    const i = list.findIndex((r) => r.id === id || r.url === recipe.url);
+    const prev = i >= 0 ? list.splice(i, 1)[0] : { saved: false };
+    const entry = { ...prev, ...stripRecipe(recipe), id, ...update(prev) };
+    list.unshift(entry);
+    out.push(entry);
+  }
   await putJson(env, LIBRARY_KEY, list.slice(0, LIBRARY_MAX));
+  return out;
+}
+
+export async function librarySave(env, recipe) {
+  const [entry] = await libraryUpsert(env, [recipe], () => ({ saved: true, savedAt: new Date().toISOString() }));
   return entry;
+}
+
+// Recipes just sent to the Fred Meyer cart.
+export async function libraryPicked(env, recipes) {
+  if (!Array.isArray(recipes) || !recipes.length || recipes.length > 20) {
+    throw new HttpError(400, 'bad_request', 'Send 1-20 recipes.');
+  }
+  const now = new Date().toISOString();
+  return libraryUpsert(env, recipes, (prev) => ({ lastPickedAt: now, pickedCount: (prev.pickedCount || 0) + 1 }));
 }
 
 export async function libraryDelete(env, id) {

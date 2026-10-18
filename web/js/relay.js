@@ -45,6 +45,7 @@ export function createRelay({ url, password, fetchImpl = globalThis.fetch.bind(g
     krogerDisconnect: () => call('POST', '/kroger/disconnect'),
     library: () => call('GET', '/library'),
     librarySave: (recipe) => call('POST', '/library', { recipe }),
+    libraryPicked: (recipes) => call('POST', '/library/picked', { recipes }),
     libraryDelete: (id) => call('DELETE', `/library?id=${encodeURIComponent(id)}`),
     prefs: () => call('GET', '/prefs'),
     prefsUpdate: (prefs) => call('PUT', '/prefs', { prefs }),

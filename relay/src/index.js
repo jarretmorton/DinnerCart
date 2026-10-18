@@ -8,7 +8,7 @@ import { corsHeaders, requirePassword } from './auth.js';
 import { HttpError, errorResponse, json, readJson } from './http.js';
 import * as kroger from './kroger.js';
 import { fetchRecipe, searchMany } from './search.js';
-import { libraryDelete, libraryList, librarySave, prefsGet, prefsUpdate } from './store.js';
+import { libraryDelete, libraryList, libraryPicked, librarySave, prefsGet, prefsUpdate } from './store.js';
 
 const routes = {
   'GET /health': async (_req, env) => ({
@@ -65,6 +65,13 @@ const routes = {
   'POST /library': async (req, env) => {
     const body = await readJson(req);
     return { recipe: await librarySave(env, body.recipe) };
+  },
+
+  // Called after a cart send: adds/updates each picked recipe as "recently picked".
+  'POST /library/picked': async (req, env) => {
+    const body = await readJson(req);
+    await libraryPicked(env, body.recipes);
+    return { recipes: await libraryList(env) };
   },
 
   'DELETE /library': async (req, env) => {
