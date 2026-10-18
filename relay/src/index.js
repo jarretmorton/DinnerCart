@@ -37,7 +37,7 @@ const routes = {
 
   'GET /kroger/locations': async (req, env) => {
     const url = new URL(req.url);
-    return { locations: await kroger.findLocations(env, url.searchParams.get('zip'), { chain: url.searchParams.get('chain') ?? 'FRED MEYER' }) };
+    return { locations: await kroger.findLocations(env, url.searchParams.get('zip')) };
   },
 
   'POST /kroger/cart': async (req, env) => {

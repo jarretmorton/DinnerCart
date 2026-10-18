@@ -500,7 +500,7 @@ async function findStores() {
     const { locations } = await relay().locations(zip);
     el.innerHTML = locations.length
       ? `<div class="stores">${locations.map((l) => `<label><input type="radio" name="store" value="${h(l.locationId)}" ${prefs.store?.locationId === l.locationId ? 'checked' : ''} data-store='${h(JSON.stringify(l))}'> <span><strong>${h(l.name)}</strong><br><span class="muted small-text">${h(l.address)}</span></span></label>`).join('')}</div>`
-      : '<p class="muted">No Fred Meyer stores within 25 miles of that ZIP.</p>';
+      : '<p class="muted">No Kroger-family stores within 25 miles of that ZIP.</p>';
   });
 }
 

@@ -190,7 +190,7 @@ instructions. The app links to the source page instead.
 
 ## Build plan status
 
-- [x] Kroger: OAuth (authorization code + refresh), product search, location search, batched cart add through the relay. The browser CORS check is in **Settings → Check setup**.
+- [x] Kroger: OAuth (authorization code + refresh), product search, location search, batched cart add through the relay. Finding: Kroger *does* allow browser CORS (a direct call returns HTTP 401, not a CORS error), but the relay is still required because the client secret and the user tokens must not live in the browser.
 - [x] Ingredient resolver + 50-line eval set + scoring script.
 - [x] Recipe search: Brave + JSON-LD extraction in the Worker.
 - [x] UI: criteria, results, review screen, settings (Gemini key, relay password, store, pantry).

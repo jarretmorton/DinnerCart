@@ -125,7 +125,14 @@ function krogerFetch({ cartStatus = 204, refreshFails = false } = {}) {
         aisleLocations: [{ description: 'Dairy' }],
       }] });
     }],
-    ['https://api.kroger.com/v1/locations', () => jsonRes({ data: [{ locationId: '70100123', chain: 'FRED', name: 'Fred Meyer - Hawthorne', address: { addressLine1: '3805 SE Hawthorne', city: 'Portland', state: 'OR', zipCode: '97214' } }] })],
+    ['https://api.kroger.com/v1/locations', (url) => {
+      assert.equal(new URL(url).searchParams.get('filter.chain'), null, 'no chain filter: Kroger chain codes differ from brand names');
+      return jsonRes({ data: [
+        { locationId: '70100999', chain: 'QFC', name: 'QFC - Broadway', address: { addressLine1: '1 Main', city: 'Portland', state: 'OR', zipCode: '97214' } },
+        { locationId: '70100555', chain: 'FRED', name: 'Fred Meyer Fuel Center - Hawthorne', address: {} },
+        { locationId: '70100123', chain: 'FRED', name: 'Fred Meyer - Hawthorne', address: { addressLine1: '3805 SE Hawthorne', city: 'Portland', state: 'OR', zipCode: '97214' } },
+      ] });
+    }],
     ['https://api.kroger.com/v1/cart/add', (_url, init) => {
       const body = JSON.parse(init.body);
       assert.ok(body.items.every((i) => i.modality === 'PICKUP'));
@@ -156,8 +163,11 @@ test('cleanTerm enforces Kroger term rules', () => {
 test('locations lookup validates ZIP', async () => {
   const env = makeEnv();
   await assert.rejects(kroger.findLocations(env, 'abc', { fetchImpl: krogerFetch() }), /5-digit/);
-  const [loc] = await kroger.findLocations(env, '97214', { fetchImpl: krogerFetch() });
-  assert.equal(loc.address, '3805 SE Hawthorne, Portland, OR, 97214');
+  const locs = await kroger.findLocations(env, '97214', { fetchImpl: krogerFetch() });
+  assert.deepEqual(locs.map((l) => l.locationId), ['70100123'], 'only Fred Meyer stores, no fuel centers');
+  assert.equal(locs[0].address, '3805 SE Hawthorne, Portland, OR, 97214');
+  const fallback = await kroger.findLocations(env, '97214', { brand: /nomatch/, fetchImpl: krogerFetch() });
+  assert.deepEqual(fallback.map((l) => l.locationId), ['70100999', '70100123'], 'falls back to all nearby stores');
 });
 
 test('full OAuth round trip then cart add, with refresh', async () => {
