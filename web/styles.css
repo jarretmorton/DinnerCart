@@ -1,24 +1,24 @@
-/* Design language: "Farmers Market". Warm paper, terracotta + sage, Fraunces
-   headings over Inter text, pill buttons, dashed "market twine" rules.
-   Night uses the same shapes and type on warm charcoal. */
+/* Design language: "Tomato & Basil". Crisp near-white, tomato red + basil
+   green, charcoal text, Fraunces headings over Inter text, pill buttons,
+   dashed "market twine" rules. Night uses the same shapes and type on green-black. */
 :root {
-  --bg: #F4EDE0;
-  --card: #FFFBF4;
-  --field: #FBF6EC;
-  --text: #2E2620;
-  --muted: #76675A;
-  --line: #E6DAC6;
-  --rule: #D9C8AE;
-  --accent: #B8532E;          /* terracotta */
-  --accent-text: #FFF8F0;
-  --accent-soft: #F3DDCF;
-  --sage: #4F6342;
-  --sage-text: #F4F1E8;
-  --sage-soft: #E5EBDD;
-  --warn: #93560A;
-  --warn-soft: #FBEBD0;
-  --bad: #A3322A;
-  --shadow: 0 1px 0 #E6DAC6;
+  --bg: #F4F6F4;
+  --card: #FFFFFF;
+  --field: #F7F9F7;
+  --text: #1D2420;
+  --muted: #5D6862;
+  --line: #DEE3DF;
+  --rule: #CBD3CD;
+  --accent: #D2412A;          /* tomato */
+  --accent-text: #FFFFFF;
+  --accent-soft: #FBE2DC;
+  --basil: #23744A;
+  --basil-text: #FFFFFF;
+  --basil-soft: #DCEFE3;
+  --warn: #8A5A00;
+  --warn-soft: #FCEFD2;
+  --bad: #B3261E;
+  --shadow: 0 1px 0 #DEE3DF;
   --radius: 18px;
   --serif: 'Fraunces', Georgia, 'Times New Roman', serif;
   --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -26,23 +26,23 @@
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #191512;
-    --card: #231D18;
-    --field: #1C1714;
-    --text: #F1E6D6;
-    --muted: #A8978A;
-    --line: #3A3129;
-    --rule: #4A3E33;
-    --accent: #E07A52;
-    --accent-text: #1E140E;
-    --accent-soft: #3D2A20;
-    --sage: #A9BD99;
-    --sage-text: #18140F;
-    --sage-soft: #2B3326;
-    --warn: #F0B85A;
-    --warn-soft: #3A2F1C;
-    --bad: #F08A80;
-    --shadow: 0 1px 0 #120F0D;
+    --bg: #111513;
+    --card: #191F1C;
+    --field: #141916;
+    --text: #E8EEEA;
+    --muted: #98A39D;
+    --line: #29312D;
+    --rule: #36403B;
+    --accent: #F26F57;
+    --accent-text: #1C0B07;
+    --accent-soft: #3B201B;
+    --basil: #7DCB98;
+    --basil-text: #0D1A12;
+    --basil-soft: #1D3227;
+    --warn: #F2C063;
+    --warn-soft: #3A3020;
+    --bad: #F2928A;
+    --shadow: 0 1px 0 #0B0E0C;
     color-scheme: dark;
   }
 }
@@ -75,11 +75,11 @@ h3 { font-size: 1.05rem; font-weight: 600; margin: 0 0 4px; }
 nav { display: flex; gap: 4px; }
 nav a { position: relative; display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 999px; text-decoration: none; color: var(--muted); }
 .nav-icon { display: none; }
-nav a.active { background: var(--sage-soft); color: var(--sage); font-weight: 600; }
+nav a.active { background: var(--basil-soft); color: var(--basil); font-weight: 600; }
 /* Count floats over the tab's top-right corner so it doesn't widen the tab. */
 .badge {
   position: absolute; top: -6px; right: -12px; min-width: 18px; padding: 0 5px;
-  background: var(--sage); color: var(--sage-text); border-radius: 9px;
+  background: var(--basil); color: var(--basil-text); border-radius: 9px;
   font-size: 0.7rem; font-weight: 600; line-height: 18px; text-align: center; pointer-events: none;
 }
 
@@ -106,7 +106,7 @@ fieldset input { width: auto; }
 .segmented label { display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; cursor: pointer; color: var(--text); }
 .segmented label + label { border-left: 1px solid var(--line); }
 .segmented input { position: absolute; opacity: 0; pointer-events: none; }
-.segmented label:has(input:checked) { background: var(--sage); color: var(--sage-text); font-weight: 600; }
+.segmented label:has(input:checked) { background: var(--basil); color: var(--basil-text); font-weight: 600; }
 .segmented label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
 .row { display: flex; gap: 8px; }
 .row input { flex: 1; min-width: 0; }
@@ -124,7 +124,7 @@ button.small { padding: 5px 12px; font-size: 0.85rem; }
 button.link { border: 0; background: none; color: var(--accent); padding: 4px; }
 button:disabled { opacity: 0.5; cursor: default; }
 
-.status { padding: 10px 14px; border-radius: 12px; margin-bottom: 16px; background: var(--sage-soft); }
+.status { padding: 10px 14px; border-radius: 12px; margin-bottom: 16px; background: var(--basil-soft); }
 .status.error { background: var(--warn-soft); color: var(--warn); }
 .status.busy::before { content: ""; display: inline-block; width: 0.8em; height: 0.8em; margin-right: 8px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: -1px; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -178,7 +178,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 .tray {
   position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 20;
-  background: var(--sage); color: var(--sage-text); padding: 12px 20px; border-radius: 999px; text-decoration: none; font-weight: 600;
+  background: var(--basil); color: var(--basil-text); padding: 12px 20px; border-radius: 999px; text-decoration: none; font-weight: 600;
   box-shadow: 0 4px 16px rgba(0,0,0,0.2); max-width: calc(100% - 32px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .toast {
