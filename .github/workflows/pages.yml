@@ -3,7 +3,7 @@ name: Deploy site
 on:
   push:
     branches: [main]
-    paths: ["web/**", ".github/workflows/pages.yml"]
+    paths: ["web/**", "scripts/stamp-site.mjs", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
@@ -23,9 +23,14 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - uses: actions/configure-pages@v5
+      # Fresh URLs per deploy so browsers never mix cached old JS with new HTML.
+      - run: node scripts/stamp-site.mjs web _site "${GITHUB_SHA::8}"
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: web
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4

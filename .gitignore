@@ -3,4 +3,5 @@ node_modules/
 .dev.vars
 eval/.cache/
 eval/results/
+_site/
 .DS_Store
