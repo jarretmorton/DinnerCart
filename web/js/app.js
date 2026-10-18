@@ -178,9 +178,10 @@ function applySearchDefaults() {
   form.elements.servings.value = prefs.servings || storage.DEFAULT_SERVINGS;
 }
 
+// "What sounds good?" starts empty on every load; only the leave-out list
+// carries over from the last search.
 function fillCriteria(form, c) {
   if (!c) return;
-  if (c.wants != null) form.elements.wants.value = c.wants;
   form.elements.exclude.value = (c.exclude || []).join(', ');
 }
 
