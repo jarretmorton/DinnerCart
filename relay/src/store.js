@@ -6,7 +6,7 @@
 //   brave:<hash>       cached search results (7 days)
 //   recipe:<hash>      cached parsed recipes (30 days), or a "none" marker
 //   library            saved recipe library (one JSON array)
-//   prefs              shared household preferences (store, pantry, rating floor, ...)
+//   prefs              shared household preferences (store, pantry, rating floor, daily ideas, ...)
 import { HttpError, sha256Hex } from './http.js';
 
 export const DAY = 86400;
@@ -81,6 +81,9 @@ const PREF_FIELDS = {
   minRating: (v) => typeof v === 'number' && v >= 0 && v <= 5,
   maxMinutes: (v) => v === null || (Number.isInteger(v) && v > 0 && v <= 600),
   servings: (v) => Number.isInteger(v) && v >= 1 && v <= 40,
+  // Today's Gemini-written "What sounds good?" ideas, shared by both devices.
+  dailyIdeas: (v) => typeof v === 'object' && v !== null && /^\d{4}-\d{2}-\d{2}$/.test(v.date)
+    && Array.isArray(v.ideas) && v.ideas.length <= 50 && v.ideas.every((s) => typeof s === 'string' && s.length <= 80),
 };
 
 export async function prefsGet(env) {

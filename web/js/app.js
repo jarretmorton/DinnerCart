@@ -691,18 +691,34 @@ $('#criteria').addEventListener('change', () => { findFormTouched = true; });
 
 // Rotating suggestions. Tapping a field's label fills in what it suggests:
 // the idea showing for "What sounds good?", the household list for "What to leave out?".
-// Gemini writes a fresh batch once a day per device (light model, so it
-// doesn't use up the strong model's limit); built-in ideas until then.
+// Gemini writes a fresh batch once a day for the household (light model,
+// so it doesn't use up the strong model's limit). The first device to open
+// the app that day generates it and shares it via the relay's prefs; the
+// other picks it up from there. Built-in ideas until then.
 let dailyIdeas = storage.loadIdeas();
 const ideas = rotatePlaceholder($('#criteria').elements.wants, () => (dailyIdeas?.ideas?.length ? dailyIdeas.ideas : IDEAS));
 async function refreshDailyIdeas() {
-  if (!configured() || dailyIdeas?.date === todayKey()) return;
+  if (!configured()) return;
+  const today = todayKey();
+  const use = (batch) => {
+    dailyIdeas = batch;
+    storage.saveIdeas(batch);
+    ideas.refresh();
+  };
+  if (prefs.dailyIdeas?.date === today && prefs.dailyIdeas.ideas?.length) {
+    if (dailyIdeas?.date !== today || dailyIdeas.ideas.join() !== prefs.dailyIdeas.ideas.join()) use(prefs.dailyIdeas);
+    return;
+  }
   try {
+    if (dailyIdeas?.date === today) {
+      // Made here earlier but never reached the relay (e.g. offline): share it now.
+      await savePrefsRemote({ dailyIdeas });
+      return;
+    }
     const fresh = await generateIdeas(createGemini({ apiKey: settings.geminiKey, model: LIGHT_MODEL }), { liked: library || [] });
     if (!fresh) return;
-    dailyIdeas = { date: todayKey(), ideas: fresh };
-    storage.saveIdeas(dailyIdeas);
-    ideas.refresh();
+    use({ date: today, ideas: fresh });
+    await savePrefsRemote({ dailyIdeas: dailyIdeas });
   } catch (err) {
     console.warn('daily ideas failed; using built-in list', err);
   }
@@ -722,6 +738,8 @@ handleOAuthReturn();
 window.addEventListener('hashchange', route);
 route();
 if (configured()) {
-  loadRemotePrefs().then(() => { applySearchDefaults(); if (location.hash === '#settings') renderSettings(); if (location.hash === '#cart') renderCart(); });
-  relay().library().then((r) => { library = r.recipes; if (location.hash !== '#cart' && location.hash !== '#settings') route(); }).catch(() => {}).finally(refreshDailyIdeas);
+  const prefsLoaded = loadRemotePrefs().then(() => { applySearchDefaults(); if (location.hash === '#settings') renderSettings(); if (location.hash === '#cart') renderCart(); });
+  const libraryLoaded = relay().library().then((r) => { library = r.recipes; if (location.hash !== '#cart' && location.hash !== '#settings') route(); });
+  // Needs the shared prefs (today's batch, if any) and the library (taste).
+  Promise.allSettled([prefsLoaded, libraryLoaded]).then(refreshDailyIdeas);
 }

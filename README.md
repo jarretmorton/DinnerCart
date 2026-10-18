@@ -109,7 +109,7 @@ app's Settings page and stored only in that browser's localStorage.
 
 ## Using it
 
-1. **Find**: describe what you want, then set time, servings and what to leave out. The boxes rotate suggestions ("What sounds good?" ideas are written fresh by Gemini once a day per device, using the light model, the season and your saved Recipes; a built-in list covers the gap); tap a box's label to use the idea shown (or, for "What to leave out?", your household list from Settings). Recipes rated below the household minimum (Settings, default 4★) are skipped; unrated ones are kept.
+1. **Find**: describe what you want, then set time, servings and what to leave out. The boxes rotate suggestions ("What sounds good?" ideas are written fresh by Gemini once a day and shared by both of you through the relay, using the light model, the season and your saved Recipes; a built-in list covers the gap); tap a box's label to use the idea shown (or, for "What to leave out?", your household list from Settings). Recipes rated below the household minimum (Settings, default 4★) are skipped; unrated ones are kept.
    Or press **Recommendations** (no fields needed): Gemini looks at your saved Recipes, plus anything you filled in, and finds new dishes in a similar vein, skipping ones you've already saved.
 2. Pick recipes, and save good ones to the shared **Recipes** tab. You can also add any recipe by pasting its link.
 3. **Cart**: adjust servings per recipe (quantities scale), then press **Match ingredients**.
@@ -179,7 +179,7 @@ All routes need `X-Relay-Password`, except the OAuth callback.
 | `GET /kroger/oauth/callback` | (from Kroger) | redirects back to the app |
 | `POST /kroger/disconnect` | | forgets the stored tokens |
 | `GET/POST/DELETE /library` | `{recipe}` / `?id=` | shared saved recipes |
-| `GET/PUT /prefs` | `{prefs: {store, pantry, leaveOut, modality, minRating, maxMinutes, servings}}` | shared household settings |
+| `GET/PUT /prefs` | `{prefs: {store, pantry, leaveOut, modality, minRating, maxMinutes, servings, dailyIdeas}}` | shared household settings |
 
 Only the URL, ingredients and metadata of recipes are stored, never the
 instructions. The app links to the source page instead.

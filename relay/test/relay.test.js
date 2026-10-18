@@ -249,6 +249,9 @@ test('library and prefs round trip through routes', async () => {
   assert.equal((await handle(req('PUT', '/prefs', { body: { prefs: { maxMinutes: 30, servings: 4 } } }), env)).status, 200);
   assert.equal((await handle(req('PUT', '/prefs', { body: { prefs: { maxMinutes: null } } }), env)).status, 200);
   assert.equal((await handle(req('PUT', '/prefs', { body: { prefs: { servings: 2.5 } } }), env)).status, 400);
+  const daily = { date: '2026-10-18', ideas: ['miso salmon bowls', 'lazy lasagna soup'] };
+  assert.deepEqual((await (await handle(req('PUT', '/prefs', { body: { prefs: { dailyIdeas: daily } } }), env)).json()).prefs.dailyIdeas, daily);
+  assert.equal((await handle(req('PUT', '/prefs', { body: { prefs: { dailyIdeas: { date: 'today', ideas: [] } } } }), env)).status, 400);
   const lo = await handle(req('PUT', '/prefs', { body: { prefs: { leaveOut: [' mushrooms ', '', 'olives'] } } }), env);
   assert.deepEqual((await lo.json()).prefs.leaveOut, ['mushrooms', 'olives']);
   const got = (await (await handle(req('GET', '/prefs'), env)).json()).prefs;
