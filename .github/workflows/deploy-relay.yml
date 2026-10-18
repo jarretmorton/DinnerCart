@@ -21,11 +21,11 @@ jobs:
       - name: Fill in KV namespace id
         working-directory: relay
         env:
-          KV_NAMESPACE_ID: ${{ vars.KV_NAMESPACE_ID }}
+          KV_NAMESPACE_ID: ${{ vars.KV_NAMESPACE_ID || secrets.KV_NAMESPACE_ID }}
         run: |
           if grep -q REPLACE_WITH_KV_NAMESPACE_ID wrangler.toml; then
             if [ -z "$KV_NAMESPACE_ID" ]; then
-              echo "::error::Set the KV_NAMESPACE_ID repository variable (see README)."; exit 1
+              echo "::error::Set KV_NAMESPACE_ID as a repository variable or secret (see README)."; exit 1
             fi
             sed -i "s/REPLACE_WITH_KV_NAMESPACE_ID/$KV_NAMESPACE_ID/" wrangler.toml
           fi
