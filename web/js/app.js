@@ -1,6 +1,6 @@
 // DinnerCart UI controller. Plain DOM; views are re-rendered from `state`.
 import { LIGHT_MODEL, createGemini, createModelSwitch } from './gemini.js';
-import { lastSearchRoute, productSearcher, resetDirectSearch } from './kroger.js';
+import { directAuthMode, lastDirectProblem, lastSearchRoute, productSearcher, resetDirectSearch } from './kroger.js';
 import { createRelay } from './relay.js';
 import { findRecipes, scaleFor } from './recipes.js';
 import { MAX_CANDIDATES, estimateTotal, heuristicPick, resolveIngredients, setPackages } from './resolver.js';
@@ -351,7 +351,8 @@ async function buildCart() {
     state.cart = { ...result, signature: pickSignature(), builtAt: Date.now(), sentAt: null };
     persist();
     const failed = result.items.filter((i) => i.searchError);
-    setStatus(status, failed.length ? `Fred Meyer search failed for ${plural(failed.length, 'item')}: ${failed[0].searchError}` : '', 'error');
+    const direct = lastDirectProblem() ? ` Searching directly from this device also failed: ${lastDirectProblem()}.` : '';
+    setStatus(status, failed.length ? `Fred Meyer search failed for ${plural(failed.length, 'item')}: ${failed[0].searchError}.${direct}` : '', 'error');
     renderCart();
   });
 }
@@ -544,10 +545,11 @@ async function diagnose() {
   try {
     resetDirectSearch();
     const milk = (await productSearcher(relay(), prefs.store?.locationId)(['milk'])).milk;
-    const route = { direct: 'directly from this device', relay: 'through the relay', mixed: 'partly through the relay' }[lastSearchRoute()] || '';
+    const route = { direct: `directly from this device${directAuthMode() === 'query' ? ' (key in web address)' : ''}`, relay: 'through the relay', mixed: 'partly through the relay' }[lastSearchRoute()] || '';
     rows.push(Array.isArray(milk) && milk.length
       ? line(true, `Fred Meyer product search works ${route} (${milk.length} results for "milk").`)
       : line(false, `Fred Meyer product search failed ${route}: ${milk?.error || 'no results'}`));
+    if (lastSearchRoute() !== 'direct' && lastDirectProblem()) rows.push(line(false, `Direct search from this device: ${lastDirectProblem()}.`));
   } catch (err) {
     rows.push(line(false, `Fred Meyer product search: ${err.message}`));
   }

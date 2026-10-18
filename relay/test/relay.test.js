@@ -171,9 +171,15 @@ test('firewall blocks: one retry, then a readable error; browser token route', a
       return akamai();
     }],
   ]);
-  const { results, errors } = await kroger.searchProductsMany(env, ['once', 'always'], '1', { fetchImpl });
+  const { results, errors } = await kroger.searchProductsMany(env, ['once', 'always', 'third', 'fourth'], '1', { fetchImpl });
   assert.equal(results.once.length, 1, 'one firewall block is retried');
   assert.equal(errors.always, "Kroger /products was blocked by Kroger's firewall (403 Access Denied)");
+  const productCalls = () => fetchImpl.calls.filter((c) => c.url.includes('/products')).length;
+  const before = productCalls();
+  assert.equal(errors.fourth, errors.always, 'after a block the remaining terms are not attempted');
+  // Cached: searching "once" again doesn't hit Kroger.
+  await kroger.searchProductsMany(env, ['once'], '1', { fetchImpl });
+  assert.equal(productCalls(), before, 'product results come from the cache');
   assert.equal(kroger.describeKrogerError('/products', 500, '<html><title>Oops</title></html>'), 'Kroger /products returned 500: Oops');
 
   const tok = await kroger.appTokenForBrowser(env, fetchImpl);

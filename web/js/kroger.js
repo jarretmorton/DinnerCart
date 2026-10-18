@@ -9,13 +9,22 @@ import { mapLimit } from './util.js';
 let token = null;
 let directOff = false; // set when the browser can't reach Kroger at all (e.g. CORS)
 
+// How the token is sent. 'header' (Authorization) needs the browser's CORS
+// preflight to succeed; if it doesn't, 'query' puts it in the URL, which is
+// a "simple" request with no preflight.
+let authMode = 'header';
 let lastRoute = null; // 'direct' | 'relay' | 'mixed', for "Check setup"
+let lastProblem = null; // why direct search last failed, in words
 export const lastSearchRoute = () => lastRoute;
+export const lastDirectProblem = () => lastProblem;
+export const directAuthMode = () => authMode;
 
 export function resetDirectSearch() {
   token = null;
   directOff = false;
+  authMode = 'header';
   lastRoute = null;
+  lastProblem = null;
 }
 
 // Relay-only search: chunks to the relay's limit and returns
@@ -45,12 +54,27 @@ export function productSearcher(relay, locationId, { fetchImpl = globalThis.fetc
     if (t.length < 3) return [];
     const params = new URLSearchParams({ 'filter.term': t, 'filter.limit': '12' });
     if (locationId) params.set('filter.locationId', locationId);
-    const send = async (force) => fetchImpl(`${KROGER_API}/products?${params}`, {
-      headers: { accept: 'application/json', authorization: `Bearer ${await getToken(force)}` },
-    });
+    const url = `${KROGER_API}/products?${params}`;
+    const send = async (force) => {
+      const tok = await getToken(force);
+      if (authMode === 'header') {
+        try {
+          return await fetchImpl(url, { headers: { accept: 'application/json', authorization: `Bearer ${tok}` } });
+        } catch (err) {
+          if (!(err instanceof TypeError)) throw err;
+          authMode = 'query';
+          lastProblem = `the browser wouldn't send the search key as a header (${err.message})`;
+        }
+      }
+      return fetchImpl(`${url}&access_token=${encodeURIComponent(tok)}`);
+    };
     let res = await send(false);
     if (res.status === 401) res = await send(true);
-    if (!res.ok) throw new Error(`Kroger returned ${res.status}`);
+    if (!res.ok) {
+      // A 401 with the key in the URL means Kroger won't take it that way: stop trying direct.
+      if (res.status === 401 && authMode === 'query') directOff = true;
+      throw new Error(`Kroger returned ${res.status}${res.status === 401 && authMode === 'query' ? ' (it won\'t accept the key in the web address)' : ''}`);
+    }
     return ((await res.json()).data || []).map(normalizeProduct);
   }
 
@@ -61,9 +85,10 @@ export function productSearcher(relay, locationId, { fetchImpl = globalThis.fetc
     }
     try {
       await getToken();
-    } catch {
+    } catch (err) {
       lastRoute = 'relay';
-      return viaRelay(terms); // older relay without /kroger/token, or relay down
+      lastProblem = `couldn't get a search key from the relay (${err.message})`;
+      return viaRelay(terms);
     }
     const out = {};
     const failed = [];
@@ -71,8 +96,9 @@ export function productSearcher(relay, locationId, { fetchImpl = globalThis.fetc
       try {
         out[term] = await searchOne(term);
       } catch (err) {
-        // TypeError = the browser couldn't reach Kroger (CORS/network): stop trying direct.
+        // TypeError = the browser couldn't reach Kroger at all (CORS/network): stop trying direct.
         if (err instanceof TypeError) directOff = true;
+        lastProblem = err instanceof TypeError ? `this device couldn't reach Kroger (${err.message})` : err.message;
         failed.push(term);
       }
     });

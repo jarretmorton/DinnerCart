@@ -5,10 +5,10 @@ export const lastActivity = (r) => [r.lastPickedAt, r.savedAt].filter(Boolean).s
 
 export const RECENCY_GROUPS = ['This week', 'Last week', 'Last 30 days', 'Older'];
 
-// Weeks start on Sunday, local time.
+// Weeks start on Monday, local time.
 function startOfWeek(now) {
   const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  d.setDate(d.getDate() - d.getDay());
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
   return d;
 }
 

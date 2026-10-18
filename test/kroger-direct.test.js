@@ -1,6 +1,6 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { lastSearchRoute, productSearcher, resetDirectSearch } from '../web/js/kroger.js';
+import { directAuthMode, lastDirectProblem, lastSearchRoute, productSearcher, resetDirectSearch } from '../web/js/kroger.js';
 
 const product = (upc, description) => ({ productId: upc, upc, description, items: [{ size: '1 each', price: { regular: 1.5 } }] });
 const jsonRes = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -49,15 +49,48 @@ test('a term that fails directly is retried through the relay', async () => {
   assert.equal(lastSearchRoute(), 'mixed');
 });
 
-test('CORS/network failure switches the session to the relay', async () => {
+test('header refused by CORS: retries with the key in the web address', async () => {
+  const relay = fakeRelay();
+  const calls = [];
+  const fetchImpl = async (url, init = {}) => {
+    calls.push({ url: new URL(url), auth: init.headers?.authorization });
+    if (init.headers?.authorization) throw new TypeError('Failed to fetch');
+    return jsonRes({ data: [product('1', 'Milk')] });
+  };
+  const search = productSearcher(relay, '701', { fetchImpl });
+  const out = await search(['milk']);
+  assert.equal(out.milk[0].description, 'Milk');
+  assert.equal(calls[1].url.searchParams.get('access_token'), 't1');
+  assert.equal(directAuthMode(), 'query');
+  assert.equal(lastSearchRoute(), 'direct');
+  await search(['eggs']);
+  assert.equal(calls.length, 3, 'stays in web-address mode, no more header attempts');
+  assert.deepEqual(relay.calls.products, []);
+});
+
+test('Kroger unreachable from the browser: falls back to the relay and explains why', async () => {
   const relay = fakeRelay();
   let directCalls = 0;
   const fetchImpl = async () => { directCalls++; throw new TypeError('Failed to fetch'); };
   const search = productSearcher(relay, '701', { fetchImpl });
   const out = await search(['milk']);
   assert.equal(out.milk[0].description, 'relay milk');
+  assert.match(lastDirectProblem(), /couldn't reach Kroger \(Failed to fetch\)/);
   await search(['eggs']);
-  assert.equal(directCalls, 1, 'no more direct attempts after a CORS failure');
+  assert.equal(directCalls, 2, 'header try + web-address try, then no more direct attempts');
+  assert.equal(lastSearchRoute(), 'relay');
+});
+
+test('Kroger rejects the key in the web address: stop trying direct', async () => {
+  const relay = fakeRelay();
+  const fetchImpl = async (_url, init = {}) => {
+    if (init.headers?.authorization) throw new TypeError('Failed to fetch');
+    return new Response('{}', { status: 401 });
+  };
+  const search = productSearcher(relay, '701', { fetchImpl });
+  const out = await search(['milk']);
+  assert.equal(out.milk[0].description, 'relay milk');
+  assert.match(lastDirectProblem(), /won't accept the key in the web address/);
   assert.equal(lastSearchRoute(), 'relay');
 });
 

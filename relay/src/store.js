@@ -5,6 +5,7 @@
 //   oauth:state:<s>    pending OAuth logins (10 minute TTL)
 //   brave:<hash>       cached search results (7 days)
 //   recipe:<hash>      cached parsed recipes (30 days), or a "none" marker
+//   products:<hash>    cached Kroger product searches per store + term (6 hours)
 //   library            saved recipe library (one JSON array)
 //   prefs              shared household preferences (store, pantry, rating floor, daily ideas, ...)
 import { HttpError, sha256Hex } from './http.js';

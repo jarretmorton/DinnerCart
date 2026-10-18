@@ -1,7 +1,7 @@
 // Kroger (Fred Meyer) API: OAuth, product search, store lookup, cart add.
 // Docs: https://developer.kroger.com/documentation/public/
 import { HttpError, fetchWithTimeout, randomHex } from './http.js';
-import { del, getJson, putJson } from './store.js';
+import { del, getJson, putJson, urlKey } from './store.js';
 import { isAllowedReturnUrl } from './auth.js';
 // Shared with the browser, which searches Kroger directly when it can.
 import { cleanTerm, normalizeProduct } from '../../web/js/kroger-shared.js';
@@ -15,7 +15,10 @@ const APP_KEY = 'kroger:app';
 const CART_BATCH = 25;
 // Kroger's API sits behind a bot firewall (Akamai). Identify ourselves; it
 // tends to reject anonymous requests.
-const UA = { 'user-agent': 'DinnerCart/1.0 (household grocery list; +https://github.com/jarretmorton/DinnerCart)' };
+const UA = {
+  'user-agent': 'DinnerCart/1.0 (household grocery list; +https://github.com/jarretmorton/DinnerCart)',
+  'accept-language': 'en-US,en;q=0.9',
+};
 
 // The firewall answers with an HTML "Access Denied" page, not Kroger JSON.
 const isFirewallBlock = (res) => res.status === 403 && /html/i.test(res.headers.get('content-type') || '');
@@ -201,7 +204,8 @@ async function krogerGet(env, path, fetchImpl, { retries = 2 } = {}) {
   }
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new HttpError(502, 'kroger_error', describeKrogerError(path.split('?')[0], res.status, body), body.slice(0, 500));
+    const code = isFirewallBlock(res) ? 'kroger_blocked' : 'kroger_error';
+    throw new HttpError(502, code, describeKrogerError(path.split('?')[0], res.status, body), body.slice(0, 500));
   }
   return res.json();
 }
@@ -209,11 +213,20 @@ async function krogerGet(env, path, fetchImpl, { retries = 2 } = {}) {
 export async function searchProducts(env, term, locationId, { limit = 12, fetchImpl = fetch } = {}) {
   const t = cleanTerm(term);
   if (t.length < 3) return [];
+  // Cached for a few hours: rebuilding a list shouldn't search Kroger again
+  // (and the fewer requests, the less Kroger's firewall gets involved).
+  const cacheKey = await urlKey('products', `${locationId || ''}|${limit}|${t.toLowerCase()}`);
+  const cached = await getJson(env, cacheKey);
+  if (cached) return cached;
   const params = new URLSearchParams({ 'filter.term': t, 'filter.limit': String(Math.min(50, limit)) });
   if (locationId) params.set('filter.locationId', locationId);
   const data = await krogerGet(env, `/products?${params}`, fetchImpl);
-  return (data.data || []).map(normalizeProduct);
+  const products = (data.data || []).map(normalizeProduct);
+  await putJson(env, cacheKey, products, PRODUCT_CACHE_SECONDS);
+  return products;
 }
+
+const PRODUCT_CACHE_SECONDS = 6 * 3600;
 
 export async function searchProductsMany(env, terms, locationId, opts = {}) {
   const list = [...new Set((terms || []).map(String).filter(Boolean))];
@@ -222,21 +235,29 @@ export async function searchProductsMany(env, terms, locationId, opts = {}) {
   const errors = {};
   // Get the token first so the searches below don't each request one.
   if (list.length) await getAppToken(env, opts.fetchImpl);
-  // A few at a time: Kroger rate-limits bursts of parallel requests.
+  // Two at a time: Kroger's firewall dislikes bursts. Once it blocks us, stop
+  // asking (more requests only prolong the block) and report the rest as blocked.
   let next = 0;
+  let blocked = null;
   const worker = async () => {
     while (next < list.length) {
       const term = list[next++];
+      if (blocked) {
+        errors[term] = blocked;
+        results[term] = [];
+        continue;
+      }
       try {
         results[term] = await searchProducts(env, term, locationId, opts);
       } catch (err) {
         console.error('product search failed', term, err.message);
+        if (err.code === 'kroger_blocked') blocked = err.message;
         errors[term] = err.message;
         results[term] = [];
       }
     }
   };
-  await Promise.all(Array.from({ length: Math.min(4, list.length) }, worker));
+  await Promise.all(Array.from({ length: Math.min(2, list.length) }, worker));
   return { results, errors };
 }
 
