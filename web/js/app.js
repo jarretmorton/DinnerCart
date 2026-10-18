@@ -165,7 +165,9 @@ function readCriteria(form) {
 function fillCriteria(form, c) {
   if (!c) return;
   for (const name of ['wants', 'servings']) if (c[name] != null) form.elements[name].value = c[name];
-  form.elements.maxMinutes.value = c.maxMinutes || '';
+  const time = form.elements.maxMinutes;
+  time.value = c.maxMinutes || '';
+  if (time.selectedIndex < 0) time.value = '30'; // saved value no longer offered
   form.elements.exclude.value = (c.exclude || []).join(', ');
 }
 
