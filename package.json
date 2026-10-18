@@ -1,0 +1,14 @@
+{
+  "name": "dinnercart",
+  "private": true,
+  "type": "module",
+  "description": "Find recipes, match ingredients to Fred Meyer products, fill a shared cart.",
+  "scripts": {
+    "test": "node --test \"test/*.test.js\" \"relay/test/*.test.js\"",
+    "eval": "node eval/run.mjs",
+    "serve": "python3 -m http.server 8080 --directory web"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

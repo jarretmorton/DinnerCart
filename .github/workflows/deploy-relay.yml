@@ -1,0 +1,49 @@
+name: Deploy relay
+
+on:
+  push:
+    branches: [main]
+    paths: ["relay/**", ".github/workflows/deploy-relay.yml"]
+  workflow_dispatch:
+
+concurrency: deploy-relay
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Unit tests
+        run: npm test
+      - name: Fill in KV namespace id
+        working-directory: relay
+        env:
+          KV_NAMESPACE_ID: ${{ vars.KV_NAMESPACE_ID }}
+        run: |
+          if grep -q REPLACE_WITH_KV_NAMESPACE_ID wrangler.toml; then
+            if [ -z "$KV_NAMESPACE_ID" ]; then
+              echo "::error::Set the KV_NAMESPACE_ID repository variable (see README)."; exit 1
+            fi
+            sed -i "s/REPLACE_WITH_KV_NAMESPACE_ID/$KV_NAMESPACE_ID/" wrangler.toml
+          fi
+      - run: npm ci
+        working-directory: relay
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: relay
+          command: deploy
+          secrets: |
+            BRAVE_API_KEY
+            KROGER_CLIENT_ID
+            KROGER_CLIENT_SECRET
+            RELAY_PASSWORD
+        env:
+          BRAVE_API_KEY: ${{ secrets.BRAVE_API_KEY }}
+          KROGER_CLIENT_ID: ${{ secrets.KROGER_CLIENT_ID }}
+          KROGER_CLIENT_SECRET: ${{ secrets.KROGER_CLIENT_SECRET }}
+          RELAY_PASSWORD: ${{ secrets.RELAY_PASSWORD }}

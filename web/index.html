@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DinnerCart</title>
+  <meta name="description" content="Find recipes and fill the Fred Meyer cart.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛒</text></svg>">
+  <link rel="stylesheet" href="styles.css">
+  <meta name="theme-color" content="#2f6b4f">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="#find">🛒 DinnerCart</a>
+    <nav>
+      <a href="#find" data-nav="find">Find</a>
+      <a href="#cart" data-nav="cart">Cart <span class="badge" id="pick-count" hidden></span></a>
+      <a href="#library" data-nav="library">Library</a>
+      <a href="#settings" data-nav="settings">Settings</a>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ============ FIND ============ -->
+    <section id="view-find" class="view" hidden>
+      <form id="criteria" class="card form">
+        <label class="wide">What sounds good?
+          <input name="wants" placeholder="e.g. cozy chicken thigh dinner, something with lots of vegetables" autocomplete="off">
+        </label>
+        <label>Cuisine <input name="cuisine" placeholder="any"></label>
+        <label>Max total time
+          <select name="maxMinutes">
+            <option value="">any</option><option value="20">20 min</option><option value="30">30 min</option>
+            <option value="45" selected>45 min</option><option value="60">1 hour</option><option value="90">1½ hours</option>
+          </select>
+        </label>
+        <label>Servings <input name="servings" type="number" min="1" max="20" value="4"></label>
+        <label>Min rating
+          <select name="minRating">
+            <option value="">any</option><option value="4">4★+</option><option value="4.5">4.5★+</option>
+          </select>
+        </label>
+        <fieldset class="wide diets">
+          <legend>Diet</legend>
+          <label><input type="checkbox" name="diets" value="vegetarian"> Vegetarian</label>
+          <label><input type="checkbox" name="diets" value="vegan"> Vegan</label>
+          <label><input type="checkbox" name="diets" value="gluten-free"> Gluten-free</label>
+          <label><input type="checkbox" name="diets" value="dairy-free"> Dairy-free</label>
+        </fieldset>
+        <label class="wide">Leave out <input name="exclude" placeholder="comma separated, e.g. mushrooms, cilantro"></label>
+        <div class="wide actions"><button type="submit" class="primary" id="search-btn">Find recipes</button></div>
+      </form>
+      <div id="find-status" class="status" hidden></div>
+      <div id="results"></div>
+    </section>
+
+    <!-- ============ CART ============ -->
+    <section id="view-cart" class="view" hidden>
+      <div id="picked"></div>
+      <div id="cart-status" class="status" hidden></div>
+      <div id="cart"></div>
+    </section>
+
+    <!-- ============ LIBRARY ============ -->
+    <section id="view-library" class="view" hidden>
+      <div class="card form">
+        <label class="wide">Add a recipe by link
+          <span class="row"><input id="add-url" type="url" placeholder="https://…"><button id="add-url-btn">Add</button></span>
+        </label>
+        <label class="wide">Filter <input id="library-filter" placeholder="name, ingredient, site…"></label>
+      </div>
+      <div id="library-status" class="status" hidden></div>
+      <div id="library"></div>
+    </section>
+
+    <!-- ============ SETTINGS ============ -->
+    <section id="view-settings" class="view" hidden>
+      <form id="settings-form" class="card form">
+        <h2 class="wide">This device</h2>
+        <p class="wide hint">Stored only in this browser.</p>
+        <label class="wide">Relay URL <input name="relayUrl" type="url" placeholder="https://dinnercart-relay.YOURNAME.workers.dev"></label>
+        <label class="wide">Relay password <input name="relayPassword" type="password" autocomplete="current-password"></label>
+        <label class="wide">Gemini API key <input name="geminiKey" type="password" autocomplete="off" placeholder="from aistudio.google.com"></label>
+        <label class="wide">Gemini model <input name="geminiModel" placeholder="gemini-flash-latest"></label>
+        <div class="wide actions">
+          <button type="submit" class="primary">Save</button>
+          <button type="button" id="diagnose-btn">Check setup</button>
+        </div>
+        <ul id="diagnostics" class="wide diagnostics"></ul>
+      </form>
+
+      <div class="card form">
+        <h2 class="wide">Fred Meyer account</h2>
+        <p class="wide hint">One login for the household. The cart is shared; check it in the Fred Meyer app before checkout.</p>
+        <p class="wide" id="kroger-status">Status unknown.</p>
+        <div class="wide actions">
+          <button id="kroger-connect" class="primary">Connect Fred Meyer</button>
+          <button id="kroger-disconnect">Disconnect</button>
+        </div>
+      </div>
+
+      <form id="prefs-form" class="card form">
+        <h2 class="wide">Household (shared)</h2>
+        <p class="wide hint">Saved on the relay, so both of you see the same store and pantry list.</p>
+        <label>Store ZIP <span class="row"><input id="zip" inputmode="numeric" maxlength="5" placeholder="97214"><button type="button" id="zip-btn">Find stores</button></span></label>
+        <label>Cart mode
+          <select name="modality"><option value="PICKUP">Pickup</option><option value="DELIVERY">Delivery</option></select>
+        </label>
+        <div class="wide" id="store-current"></div>
+        <div class="wide" id="store-list"></div>
+        <label class="wide">Pantry staples (never added; one per line)
+          <textarea name="pantry" rows="10"></textarea>
+        </label>
+        <div class="wide actions"><button type="submit" class="primary">Save household settings</button></div>
+      </form>
+    </section>
+  </main>
+
+  <a id="tray" class="tray" href="#cart" hidden></a>
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

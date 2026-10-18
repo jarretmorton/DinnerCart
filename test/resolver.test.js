@@ -1,0 +1,158 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { estimateTotal, heuristicPick, resolveIngredients, setPackages } from '../web/js/resolver.js';
+import { filterRecipes, scaleFor, dietViolations } from '../web/js/recipes.js';
+
+// Fake Gemini: answers the normalize prompt from a table keyed by line text,
+// and the pick prompt with a provided function.
+function fakeGemini({ normalized, pick }) {
+  const calls = [];
+  return {
+    calls,
+    async json(prompt, _schema, { system } = {}) {
+      calls.push({ prompt, system });
+      if (system.startsWith('You turn recipe ingredient lines')) {
+        const items = [];
+        for (const m of prompt.matchAll(/^(\d+\.\d+): (.*)$/gm)) {
+          for (const entry of normalized[m[2]] || []) items.push({ line: m[1], optional: false, skip: false, pantryMatch: null, ...entry });
+        }
+        return { items };
+      }
+      const picks = [];
+      for (const m of prompt.matchAll(/### id (\d+)\nneed: ([^—]+) —/g)) picks.push({ id: m[1], ...pick(m[2].trim()) });
+      return { picks };
+    },
+  };
+}
+
+const product = (upc, description, size, price, extra = {}) => ({ upc, productId: upc, description, size, price, brand: 'Kroger', inStock: true, soldBy: 'UNIT', ...extra });
+
+const CATALOG = {
+  'yellow onion': [product('1', 'Onion Powder', '3 oz', 2.5), product('2', 'Yellow Onion', '1 each', 0.99)],
+  'black beans': [product('3', 'Kroger® Black Beans', '15 oz', 0.89)],
+  'chicken broth': [product('4', 'Kroger® Chicken Broth', '32 fl oz', 1.99)],
+  'cilantro': [],
+  'fresh cilantro': [product('5', 'Cilantro Bunch', '1 ct', 0.79)],
+};
+
+const NORMALIZED = {
+  '1 onion, diced': [{ name: 'yellow onion', searchTerm: 'yellow onion', quantity: 1, unit: 'count' }],
+  '2 yellow onions': [{ name: 'Yellow Onion', searchTerm: 'yellow onion', quantity: 2, unit: 'counts' }],
+  '1 (15 oz) can black beans, drained': [{ name: 'black beans', searchTerm: 'black beans', quantity: 1, unit: 'can' }],
+  '4 cups chicken broth': [{ name: 'chicken broth', searchTerm: 'chicken broth', quantity: 4, unit: 'cups' }],
+  'Kosher salt and pepper': [
+    { name: 'kosher salt', searchTerm: 'kosher salt', quantity: null, unit: null, pantryMatch: 'Salt' },
+    { name: 'black pepper', searchTerm: 'black pepper', quantity: null, unit: null, pantryMatch: 'black pepper' },
+  ],
+  '1/4 cup water': [{ name: 'water', searchTerm: 'water', quantity: 0.25, unit: 'cup', skip: true }],
+  'Cilantro, for garnish': [{ name: 'cilantro', searchTerm: 'cilantro', quantity: null, unit: null, optional: true }],
+  '1 bunch cilantro': [{ name: 'fresh cilantro', searchTerm: 'cilantro', quantity: 1, unit: 'bunch' }],
+};
+
+test('end-to-end resolve: normalize, pantry, merge, search, pick, packages', async () => {
+  const gemini = fakeGemini({
+    normalized: NORMALIZED,
+    pick: (name) => (name === 'yellow onion' ? { choice: 1, packages: 9, reason: 'fresh onion' } : { choice: 0, packages: 1, reason: 'ok' }),
+  });
+  const searched = [];
+  const searchProducts = async (terms) => {
+    searched.push(terms);
+    return Object.fromEntries(terms.map((t) => [t, CATALOG[t] || []]));
+  };
+  const { items, skipped } = await resolveIngredients({
+    recipes: [
+      { name: 'Chili', ingredients: ['1 onion, diced', '1 (15 oz) can black beans, drained', 'Kosher salt and pepper', '1/4 cup water'], scale: 2 },
+      { name: 'Soup', ingredients: ['2 yellow onions', '4 cups chicken broth', 'Cilantro, for garnish', '1 bunch cilantro'], scale: 1 },
+    ],
+    pantry: ['Salt', 'black pepper', 'olive oil'],
+    gemini,
+    searchProducts,
+  });
+
+  assert.deepEqual(skipped.map((s) => s.reason).sort(), ['not needed', 'optional', 'pantry: Salt', 'pantry: black pepper']);
+
+  const byName = Object.fromEntries(items.map((i) => [i.name.toLowerCase(), i]));
+  assert.deepEqual(Object.keys(byName).sort(), ['black beans', 'chicken broth', 'fresh cilantro', 'yellow onion']);
+
+  const onion = byName['yellow onion'];
+  assert.deepEqual(onion.recipes, ['Chili', 'Soup']);
+  assert.deepEqual(onion.needs.map((n) => [n.qty, n.unit]), [[2, 'count'], [2, 'count']], 'Chili scaled ×2, units normalized');
+  assert.equal(onion.candidates[onion.choice].upc, '2');
+  assert.equal(onion.packages, 4, 'computed from "1 each", not Gemini\'s 9');
+  assert.equal(onion.packagesSource, 'computed');
+
+  assert.equal(byName['black beans'].packages, 2, '1 can × scale 2');
+  assert.equal(byName['chicken broth'].packages, 1, '4 cups ≈ 32 fl oz');
+
+  const cilantro = byName['fresh cilantro'];
+  assert.equal(cilantro.candidates[0].upc, '5', 'term "cilantro" found nothing, retried with item name');
+  assert.equal(cilantro.packages, 1);
+  assert.equal(searched.length, 2);
+
+  assert.equal(Math.round(estimateTotal(items) * 100) / 100, Math.round((0.99 * 4 + 0.89 * 2 + 1.99 + 0.79) * 100) / 100);
+});
+
+test('merge:false keeps every line separate (eval mode)', async () => {
+  const gemini = fakeGemini({ normalized: NORMALIZED, pick: () => ({ choice: 0, packages: 1, reason: '' }) });
+  const { items } = await resolveIngredients({
+    recipes: [{ name: 'eval', ingredients: ['1 onion, diced', '2 yellow onions'] }],
+    gemini,
+    searchProducts: async (terms) => Object.fromEntries(terms.map((t) => [t, CATALOG[t] || []])),
+    merge: false,
+  });
+  assert.equal(items.length, 2);
+  assert.deepEqual(items.map((i) => i.key), ['1.1', '1.2']);
+});
+
+test('bad Gemini picks fall back to the text heuristic; lines Gemini drops still surface', async () => {
+  const gemini = fakeGemini({ normalized: NORMALIZED, pick: () => ({ choice: 7, packages: 1, reason: '' }) });
+  const { items } = await resolveIngredients({
+    recipes: [{ name: 'x', ingredients: ['1 onion, diced', 'a mystery line'] }],
+    gemini,
+    searchProducts: async (terms) => Object.fromEntries(terms.map((t) => [t, CATALOG[t] || []])),
+  });
+  const onion = items.find((i) => i.name === 'yellow onion');
+  assert.equal(onion.candidates[onion.choice].description, 'Yellow Onion');
+  const mystery = items.find((i) => i.name === 'a mystery line');
+  assert.equal(mystery.choice, -1);
+});
+
+test('heuristicPick prefers matching, in-stock items', () => {
+  const item = { name: 'unsalted butter', searchTerm: 'unsalted butter' };
+  const c = [
+    product('1', 'Salted Butter Sticks', '16 oz', 4),
+    product('2', 'Unsalted Butter', '16 oz', 4, { inStock: false }),
+    product('3', 'Kroger Unsalted Butter Sticks', '16 oz', 4.5),
+  ];
+  assert.equal(heuristicPick(item, c), 2);
+});
+
+test('setPackages after a swap uses the new product size', () => {
+  const item = { needs: [{ qty: 3, unit: 'lb' }], candidates: [product('1', 'Beef', '1 lb', 5), product('2', 'Beef', '3 lb', 13)], choice: 0 };
+  assert.equal(setPackages(item).packages, 3);
+  item.choice = 1;
+  assert.equal(setPackages(item).packages, 1);
+});
+
+test('recipe filters and scaling', () => {
+  const base = { site: 'a.example', ingredients: ['1 lb chicken thighs', '1 cup rice'], totalMinutes: 40, rating: { value: 4.6 } };
+  const recipes = [
+    { ...base, name: 'A' },
+    { ...base, name: 'A' },
+    { ...base, name: 'Slow', totalMinutes: 240 },
+    { ...base, name: 'Meh', rating: { value: 3.1 } },
+    { ...base, name: 'Unknown time', totalMinutes: null },
+    { ...base, name: 'Has rice', site: 'b.example' },
+  ];
+  const { kept, rejected } = filterRecipes(recipes, { maxMinutes: 60, minRating: 4, exclude: [] });
+  assert.deepEqual(kept.map((r) => r.name), ['A', 'Unknown time', 'Has rice']);
+  assert.deepEqual(rejected.map((r) => r.reason), ['duplicate', 'takes 240 min', 'rated 3.1']);
+
+  const veg = filterRecipes(recipes.slice(0, 1), { diets: ['vegetarian'] });
+  assert.equal(veg.kept.length, 0);
+  assert.match(veg.rejected[0].reason, /vegetarian/);
+  assert.deepEqual(dietViolations({ ingredients: ['1 cup almond milk', '2 tbsp vegan butter', 'butternut squash'] }, ['vegan', 'dairy-free']), []);
+
+  assert.equal(scaleFor({ servings: 6 }, 4), 0.67);
+  assert.equal(scaleFor({ servings: null }, 4), 1);
+});

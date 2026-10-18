@@ -1,0 +1,19 @@
+name = "dinnercart-relay"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+# Not secret. Origins allowed to call the relay from a browser, and where
+# the Fred Meyer login sends you back to.
+[vars]
+ALLOWED_ORIGINS = "https://jarretmorton.github.io,http://localhost:8080"
+APP_URL = "https://jarretmorton.github.io/DinnerCart/"
+KROGER_API_BASE = "https://api.kroger.com/v1"
+
+# Create once with:  npx wrangler kv namespace create DC_KV
+# then paste the id it prints here.
+[[kv_namespaces]]
+binding = "DC_KV"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Secrets (set via GitHub Actions or `npx wrangler secret put NAME`), never committed:
+#   BRAVE_API_KEY, KROGER_CLIENT_ID, KROGER_CLIENT_SECRET, RELAY_PASSWORD

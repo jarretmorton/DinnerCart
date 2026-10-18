@@ -1,0 +1,44 @@
+name: Resolver eval
+
+# Scores ingredient -> product matching on eval/cases.json whenever the
+# resolver changes. Skips quietly until GEMINI_API_KEY, RELAY_PASSWORD and
+# the RELAY_URL variable are set.
+on:
+  push:
+    paths: ["web/js/resolver.js", "web/js/units.js", "web/js/gemini.js", "eval/**"]
+  workflow_dispatch:
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      RELAY_PASSWORD: ${{ secrets.RELAY_PASSWORD }}
+      RELAY_URL: ${{ vars.RELAY_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check configuration
+        id: cfg
+        run: |
+          if [ -n "$GEMINI_API_KEY" ] && [ -n "$RELAY_PASSWORD" ] && [ -n "$RELAY_URL" ]; then echo "ready=true" >> "$GITHUB_OUTPUT"
+          else echo "::notice::Eval skipped: set GEMINI_API_KEY and RELAY_PASSWORD secrets and the RELAY_URL variable."; fi
+      - uses: actions/cache@v4
+        if: steps.cfg.outputs.ready == 'true'
+        with:
+          path: eval/.cache
+          key: eval-products-${{ hashFiles('eval/cases.json') }}
+      - name: Run eval
+        if: steps.cfg.outputs.ready == 'true'
+        run: node eval/run.mjs | tee eval-output.txt
+      - name: Summary
+        if: steps.cfg.outputs.ready == 'true'
+        run: |
+          { echo '```'; cat eval-output.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: steps.cfg.outputs.ready == 'true'
+        with:
+          name: eval-results
+          path: eval/results/latest.json
