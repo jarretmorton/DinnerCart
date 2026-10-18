@@ -76,9 +76,12 @@ input, select, textarea {
 }
 textarea { resize: vertical; }
 fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }
-legend { font-size: 0.9rem; color: var(--muted); margin-bottom: 4px; }
+legend { font-size: 0.9rem; color: var(--muted); margin-bottom: 4px; padding: 0; }
 fieldset label { flex-direction: row; align-items: center; color: var(--text); }
 fieldset input { width: auto; }
+.time-servings { flex-wrap: nowrap; align-items: center; gap: 8px; }
+.time-servings select { flex: 1; min-width: 0; width: auto; }
+.time-servings input { width: 4.5em; }
 .segmented { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .segmented label { padding: 8px 16px; cursor: pointer; color: var(--text); }
 .segmented label + label { border-left: 1px solid var(--line); }
