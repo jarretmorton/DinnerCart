@@ -9,6 +9,7 @@ import { summarizeNeeds } from './units.js';
 import { escapeHtml as h, money } from './util.js';
 import { IDEAS, LEAVE_OUT_EXAMPLES, generateIdeas, rotatePlaceholder, todayKey } from './suggestions.js';
 import { hydrateIcons, icon } from './icons.js';
+import { groupByRecency } from './library.js';
 import { VERSION } from './version.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -296,7 +297,10 @@ function renderShoppingList() {
     <div class="card sendbar">
       <div><strong>${plural(sendable.length, 'product')}</strong> · est. ${money(estimateTotal(sendable))}
         <div class="muted small-text">${prefs.modality === 'DELIVERY' ? 'Delivery' : 'Pickup'} cart${cart.sentAt ? ` · sent ${new Date(cart.sentAt).toLocaleString()}` : ''} · ${fmCartLink()}</div></div>
-      <button class="primary" data-action="send-cart" ${sendable.length ? '' : 'disabled'}>${cart.sentAt ? 'Send again' : 'Add to Fred Meyer cart'}</button>
+      <div class="sendbar-actions">
+        <button class="primary" data-action="send-cart" ${sendable.length ? '' : 'disabled'}>${cart.sentAt ? 'Send again' : 'Add to Fred Meyer cart'}</button>
+        <button data-action="clear-list">Clear list</button>
+      </div>
     </div>`;
 }
 
@@ -419,23 +423,21 @@ async function loadLibrary(force = false) {
 }
 
 const shortDate = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-// Most recent of saving or sending to the cart.
-const lastActivity = (r) => [r.lastPickedAt, r.savedAt].filter(Boolean).sort().pop() || '';
 
-// One list: recipes saved by hand and those saved automatically when sent to
-// Fred Meyer, newest activity first. Each can be picked again or removed.
+// One list (saved by hand or automatically when sent to Fred Meyer), grouped
+// by when it was last saved or picked. Each can be picked again or removed.
 function renderLibrary() {
   const q = $('#library-filter').value.trim().toLowerCase();
   const list = (library || [])
-    .filter((r) => !q || [r.name, r.site, ...(r.ingredients || []), ...(r.cuisine || [])].join(' ').toLowerCase().includes(q))
-    .sort((a, b) => lastActivity(b).localeCompare(lastActivity(a)));
+    .filter((r) => !q || [r.name, r.site, ...(r.ingredients || []), ...(r.cuisine || [])].join(' ').toLowerCase().includes(q));
   const note = (r) => (r.lastPickedAt
     ? `Picked ${shortDate(r.lastPickedAt)}${r.pickedCount > 1 ? ` · ${r.pickedCount}× so far` : ''}`
     : r.savedAt ? `Saved ${shortDate(r.savedAt)}` : '');
   $('#library').innerHTML = list.length
-    ? `<div class="section-title"><h2>Saved recipes</h2><span class="muted small-text">${list.length}</span></div>
-       <div class="grid">${list.map((r) => recipeCard(r, { libraryId: r.id, reason: note(r) })).join('')}</div>`
-    : `<p class="muted">${library?.length ? 'No matches.' : 'Nothing saved yet. Save recipes from search results or add one by link. Recipes you send to Fred Meyer are saved here automatically.'}</p>`;
+    ? groupByRecency(list).map((g) => `
+        <div class="section-title"><h2>${g.title}</h2><span class="muted small-text">${g.recipes.length}</span></div>
+        <div class="grid">${g.recipes.map((r) => recipeCard(r, { libraryId: r.id, reason: note(r) })).join('')}</div>`).join('')
+    : `<p class="muted">${library?.length ? 'No matches.' : 'Nothing saved yet. Save recipes from search results or add one by link below. Recipes you send to Fred Meyer are saved here automatically.'}</p>`;
 }
 
 async function saveRecipe(url) {
@@ -595,6 +597,13 @@ document.addEventListener('click', async (e) => {
       persist();
       setStatus($('#cart-status'), '');
       return route();
+    case 'clear-list':
+      // Shopping list only; the picked recipes stay so it can be rebuilt.
+      if (!confirm('Clear the shopping list? Your picked recipes stay. This doesn\'t change your Fred Meyer cart.')) return;
+      state.cart = null;
+      persist();
+      setStatus($('#cart-status'), '');
+      return renderCart();
     case 'send-cart': return sendCart();
     case 'qty': {
       const item = findItem(key);

@@ -40,6 +40,7 @@ single-use `state` value.
 | `web/js/recipes.js` | Query generation (search and Recommendations), structured filters, Gemini ranking. |
 | `web/js/gemini.js` | Gemini client with the strong → light fallback. |
 | `web/js/suggestions.js` | Rotating "What sounds good?" ideas and the daily Gemini batch. |
+| `web/js/library.js` | Recipes tab grouping (This week / Last week / Last 30 days / Older). |
 | `web/js/kroger.js`, `web/js/kroger-shared.js` | Direct-from-browser product search with relay fallback; product formatting shared with the relay. |
 | `web/js/icons.js` | The app's line icons. |
 | `web/js/version.js` | App version shown in the header. |
@@ -129,8 +130,8 @@ Everything under Household is saved on the relay, so both of you share it. The r
 1. **Find**: describe what you want, then set time, servings and what to leave out. The boxes rotate suggestions ("What sounds good?" ideas are written fresh by Gemini once a day and shared by both of you through the relay, using the light model, the season and your saved Recipes; a built-in list covers the gap); tap a box's label to use the idea shown (or, for "What to leave out?", your household list from Settings). Recipes rated below the household minimum (Settings, default 4★) are skipped; unrated ones are kept.
    Or press **Recommendations** (no fields needed): Gemini looks at your saved Recipes, plus anything you filled in, and finds new dishes in a similar vein, skipping ones you've already saved.
    **Clear results** empties the results list.
-2. On any recipe, **Pick** it for this shop or **Save** it. The **Recipes** tab is one shared list of everything saved, by hand or automatically when sent to Fred Meyer, newest first, showing when each was last picked. **Pick** it again or **Remove** it from there. You can also add any recipe by pasting its link.
-3. **Cart**: adjust servings per recipe (quantities scale), then press **Match ingredients**. **Clear cart** empties the picks and shopping list in the app (not the Fred Meyer cart).
+2. On any recipe, **Pick** it for this shop or **Save** it. The **Recipes** tab is one shared list of everything saved, by hand or automatically when sent to Fred Meyer, grouped into **This week**, **Last week**, **Last 30 days** and **Older** by when it was last saved or picked. **Pick** it again or **Remove** it from there. You can also add any recipe by pasting its link at the bottom.
+3. **Cart**: adjust servings per recipe (quantities scale), then press **Match ingredients**. **Clear cart** empties the picks and shopping list in the app; **Clear list** (next to the send button) empties just the shopping list. Neither touches the Fred Meyer cart.
 4. Review each line: swap to another candidate, search again, change the count, or remove it. Pantry staples, optional garnishes and water are listed under *Not adding*; tap + to add one anyway. If a Fred Meyer search fails, the line says why.
 5. Press **Add to Fred Meyer cart**, then use **Open Fred Meyer cart** to review and check out. On phones it usually opens the Fred Meyer app. The recipes you sent are saved to the shared **Recipes** tab automatically.
 
