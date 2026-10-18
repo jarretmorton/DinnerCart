@@ -1,4 +1,4 @@
-// Line icons for the "Farmers Market" design: 24px grid, rounded 1.75 strokes,
+// Line icons for the "Tomato & Basil" design: 24px grid, rounded 1.75 strokes,
 // drawn in currentColor so they follow the text color (and night mode).
 const PATHS = {
   search: '<circle cx="10.5" cy="10.5" r="6.2"/><path d="M15.2 15.2 20 20"/>',

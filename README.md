@@ -142,7 +142,7 @@ and the app asks you to confirm first.
 
 The app version lives in `web/js/version.js` and shows in the header. Bump it with every change so you can tell whether a browser has the latest build. GitHub Pages can cache the page for up to 10 minutes. The deploy stamps every file with the commit, so a page always loads code from its own deploy.
 
-The design language ("Farmers Market", with a matching night mode) and the icon rules are written down in `CLAUDE.md`.
+The design language ("Tomato & Basil", with a matching night mode) and the icon rules are written down in `CLAUDE.md`.
 
 ```sh
 npm test                      # unit tests: relay + resolver + units + eval scoring
@@ -218,7 +218,7 @@ instructions. The app links to the source page instead.
 - [x] Kroger: OAuth (authorization code + refresh), product search, location search, batched cart add through the relay. Finding: Kroger *does* allow browser CORS (a direct call returns HTTP 401, not a CORS error), but the relay is still required because the client secret and the user tokens must not live in the browser.
 - [x] Ingredient resolver + 50-line eval set + scoring script.
 - [x] Recipe search: Brave + JSON-LD extraction in the Worker.
-- [x] UI: criteria, results, review screen, settings (Gemini key, relay password, store, pantry), plus Recommendations, daily ideas and the Farmers Market design.
+- [x] UI: criteria, results, review screen, settings (Gemini key, relay password, store, pantry), plus Recommendations, daily ideas and the Tomato & Basil design.
 - [x] Saved recipe library, plus KV caching of parsed recipes and search results.
 
 Out of scope for the MVP: meal planning, price/coupon optimization, nutrition
