@@ -49,6 +49,7 @@ h3 { font-size: 1rem; margin: 0 0 4px; }
   background: var(--card); border-bottom: 1px solid var(--line);
 }
 .brand { font-weight: 700; text-decoration: none; color: var(--text); }
+.version { font-weight: 400; font-size: 0.75rem; color: var(--muted); }
 nav { display: flex; gap: 4px; }
 nav a { padding: 6px 10px; border-radius: 8px; text-decoration: none; color: var(--muted); }
 nav a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }

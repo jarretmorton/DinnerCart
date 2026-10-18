@@ -6,6 +6,7 @@ import { MAX_CANDIDATES, estimateTotal, heuristicPick, resolveIngredients, setPa
 import * as storage from './storage.js';
 import { summarizeNeeds } from './units.js';
 import { escapeHtml as h, money } from './util.js';
+import { VERSION } from './version.js';
 
 const $ = (sel) => document.querySelector(sel);
 const VIEWS = ['find', 'cart', 'library', 'settings'];
@@ -625,6 +626,8 @@ function handleOAuthReturn() {
   history.replaceState(null, '', `${location.pathname}${location.hash}`);
 }
 
+$('#app-version').textContent = `v${VERSION}`;
+$('#settings-version').textContent = `DinnerCart version ${VERSION}`;
 fillCriteria($('#criteria'), state.criteria);
 handleOAuthReturn();
 window.addEventListener('hashchange', route);
