@@ -6,7 +6,7 @@
 //   brave:<hash>       cached search results (7 days)
 //   recipe:<hash>      cached parsed recipes (30 days), or a "none" marker
 //   library            saved recipe library (one JSON array)
-//   prefs              shared household preferences (store, pantry, ...)
+//   prefs              shared household preferences (store, pantry, rating floor, ...)
 import { HttpError, sha256Hex } from './http.js';
 
 export const DAY = 86400;
@@ -77,6 +77,7 @@ const PREF_FIELDS = {
   store: (v) => v === null || (typeof v === 'object' && typeof v.locationId === 'string'),
   pantry: (v) => Array.isArray(v) && v.every((s) => typeof s === 'string'),
   modality: (v) => v === 'PICKUP' || v === 'DELIVERY',
+  minRating: (v) => typeof v === 'number' && v >= 0 && v <= 5,
 };
 
 export async function prefsGet(env) {

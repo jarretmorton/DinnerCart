@@ -9,7 +9,7 @@ import { escapeHtml as h, money } from './util.js';
 import { VERSION } from './version.js';
 
 const $ = (sel) => document.querySelector(sel);
-const VIEWS = ['find', 'cart', 'library', 'settings'];
+const VIEWS = ['find', 'cart', 'recipes', 'settings'];
 
 let settings = storage.loadSettings();
 let prefs = storage.loadPrefs();
@@ -83,13 +83,13 @@ const pickSignature = () => state.selected.map((s) => `${s.recipe.url}@${s.servi
 // ---------------------------------------------------------------- routing
 
 function route() {
-  const hash = location.hash.slice(1);
+  const hash = location.hash.slice(1) === 'library' ? 'recipes' : location.hash.slice(1); // old links
   const view = VIEWS.includes(hash) ? hash : configured() ? 'find' : 'settings';
   for (const v of VIEWS) $(`#view-${v}`).hidden = v !== view;
   document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === view));
   if (view === 'find') renderResults();
   if (view === 'cart') renderCart();
-  if (view === 'library') loadLibrary();
+  if (view === 'recipes') loadLibrary();
   if (view === 'settings') renderSettings();
   renderTray(view);
 }
@@ -158,7 +158,6 @@ function readCriteria(form) {
     wants: String(f.get('wants') || '').trim(),
     maxMinutes: Number(f.get('maxMinutes')) || null,
     servings: Number(f.get('servings')) || null,
-    minRating: Number(f.get('minRating')) || null,
     exclude: list(f.get('exclude')),
   };
 }
@@ -167,7 +166,6 @@ function fillCriteria(form, c) {
   if (!c) return;
   for (const name of ['wants', 'servings']) if (c[name] != null) form.elements[name].value = c[name];
   form.elements.maxMinutes.value = c.maxMinutes || '';
-  form.elements.minRating.value = c.minRating || '';
   form.elements.exclude.value = (c.exclude || []).join(', ');
 }
 
@@ -179,7 +177,7 @@ async function runSearch(event) {
     location.hash = 'settings';
     return;
   }
-  const criteria = readCriteria(event.target);
+  const criteria = { ...readCriteria(event.target), minRating: prefs.minRating ?? storage.DEFAULT_MIN_RATING };
   if (!criteria.wants) {
     setStatus(status, 'Tell me what sounds good.', 'error');
     return;
@@ -189,7 +187,7 @@ async function runSearch(event) {
     try {
       state.criteria = criteria;
       const results = await findRecipes({ gemini: gemini(), relay: relay(), criteria, onProgress: (t) => setStatus(status, t) });
-      state.results = { ...results, at: Date.now() };
+      state.results = { ...results, minRating: criteria.minRating, at: Date.now() };
       persist();
       setStatus(status, '');
       renderResults();
@@ -211,8 +209,9 @@ function renderResults() {
   el.innerHTML = `
     <div class="section-title">
       <h2>${r.ranked.length ? plural(r.ranked.length, 'recipe') : 'No recipes matched'}</h2>
-      <span class="muted small-text">searched: ${r.queries.map(h).join(' · ')}</span>
+      <button class="small" data-action="clear-results">Clear results</button>
     </div>
+    <p class="muted small-text">Searched: ${r.queries.map(h).join(' · ')}${r.minRating ? ` · rated ${h(r.minRating)}★ and up` : ''}</p>
     <div class="grid">${r.ranked.map((x) => recipeCard(x.recipe, { reason: x.reason })).join('')}</div>
     ${rejected.length ? `<details class="card small-text"><summary>${rejected.length} filtered out</summary><ul>${rejected.map((x) =>
       `<li><a href="${h(x.recipe.url)}" target="_blank" rel="noopener">${h(x.recipe.name)}</a> — ${h(x.reason)}</li>`).join('')}</ul></details>` : ''}
@@ -227,13 +226,13 @@ function renderCart() {
   const cart = state.cart;
   const storeName = prefs.store?.name;
   if (!state.selected.length && !cart) {
-    picked.innerHTML = `<div class="card"><h2>Nothing picked yet</h2><p class="muted">Pick recipes on <a href="#find">Find</a> or from your <a href="#library">Library</a>.</p></div>`;
+    picked.innerHTML = `<div class="card"><h2>Nothing picked yet</h2><p class="muted">Pick recipes on <a href="#find">Find</a> or from your saved <a href="#recipes">Recipes</a>.</p></div>`;
     $('#cart').innerHTML = '';
     return;
   }
   picked.innerHTML = `
     <div class="card">
-      <div class="section-title" style="margin-top:0"><h2>Picked recipes</h2></div>
+      <div class="section-title" style="margin-top:0"><h2>Picked recipes</h2><button class="small" data-action="clear-cart">Clear cart</button></div>
       ${state.selected.map((s) => `
         <div class="picked-row">
           <div class="name"><a href="${h(s.recipe.url)}" target="_blank" rel="noopener">${h(s.recipe.name)}</a>
@@ -374,12 +373,12 @@ async function sendCart() {
 async function loadLibrary(force = false) {
   const status = $('#library-status');
   if (!configured()) {
-    setStatus(status, 'Set up the relay in Settings to use the shared library.', 'error');
+    setStatus(status, 'Set up the relay in Settings to use your saved recipes.', 'error');
     return;
   }
   if (library && !force) return renderLibrary();
   try {
-    setStatus(status, 'Loading library…');
+    setStatus(status, 'Loading recipes…');
     library = (await relay().library()).recipes;
     setStatus(status, '');
   } catch (err) {
@@ -403,7 +402,7 @@ async function saveRecipe(url) {
   await guarded(null, async () => {
     const saved = (await relay().librarySave(recipe)).recipe;
     library = [saved, ...(library || []).filter((r) => r.url !== saved.url)];
-    toast('Saved to library');
+    toast('Saved to Recipes');
     route();
   });
 }
@@ -433,6 +432,7 @@ function renderSettings() {
   const pf = $('#prefs-form');
   pf.elements.pantry.value = (prefs.pantry || []).join('\n');
   pf.elements.modality.value = prefs.modality || 'PICKUP';
+  pf.elements.minRating.value = String(prefs.minRating ?? storage.DEFAULT_MIN_RATING);
   $('#store-current').innerHTML = prefs.store
     ? `Store: <strong>${h(prefs.store.name)}</strong> <span class="muted small-text">${h(prefs.store.address || '')} · #${h(prefs.store.locationId)}</span>`
     : '<span class="notice">No store chosen yet.</span>';
@@ -526,13 +526,25 @@ document.addEventListener('click', async (e) => {
     case 'toggle-pick': return togglePick(url);
     case 'save': return saveRecipe(url);
     case 'lib-delete':
-      if (!confirm('Remove this recipe from the shared library?')) return;
+      if (!confirm('Remove this recipe from your saved Recipes (for both of you)?')) return;
       return guarded($('#library-status'), async () => {
         await relay().libraryDelete(id);
         library = library.filter((r) => r.id !== id);
         renderLibrary();
       });
     case 'build-cart': return buildCart();
+    case 'clear-results':
+      state.results = null;
+      persist();
+      setStatus($('#find-status'), '');
+      return renderResults();
+    case 'clear-cart':
+      if (!confirm('Clear the picked recipes and shopping list? This doesn\'t change your Fred Meyer cart.')) return;
+      state.selected = [];
+      state.cart = null;
+      persist();
+      setStatus($('#cart-status'), '');
+      return route();
     case 'send-cart': return sendCart();
     case 'qty': {
       const item = findItem(key);
@@ -619,7 +631,7 @@ $('#prefs-form').addEventListener('submit', (e) => {
   const f = e.target.elements;
   const pantry = f.pantry.value.split('\n').map((s) => s.trim()).filter(Boolean);
   guarded(null, async () => {
-    await savePrefsRemote({ pantry, modality: f.modality.value });
+    await savePrefsRemote({ pantry, modality: f.modality.value, minRating: Number(f.minRating.value) });
     toast('Household settings saved');
   });
 });

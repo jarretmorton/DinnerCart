@@ -13,10 +13,10 @@
   <header class="top">
     <a class="brand" href="#find">🛒 DinnerCart <span class="version" id="app-version"></span></a>
     <nav>
-      <a href="#find" data-nav="find">Find</a>
-      <a href="#cart" data-nav="cart">Cart <span class="badge" id="pick-count" hidden></span></a>
-      <a href="#library" data-nav="library">Library</a>
-      <a href="#settings" data-nav="settings">Settings</a>
+      <a href="#find" data-nav="find" aria-label="Find"><span class="nav-icon" aria-hidden="true">🔍</span><span class="nav-label">Find</span></a>
+      <a href="#cart" data-nav="cart" aria-label="Cart"><span class="nav-icon" aria-hidden="true">🛒</span><span class="nav-label">Cart</span> <span class="badge" id="pick-count" hidden></span></a>
+      <a href="#recipes" data-nav="recipes" aria-label="Recipes"><span class="nav-icon" aria-hidden="true">📖</span><span class="nav-label">Recipes</span></a>
+      <a href="#settings" data-nav="settings" aria-label="Settings"><span class="nav-icon" aria-hidden="true">⚙️</span><span class="nav-label">Settings</span></a>
     </nav>
   </header>
 
@@ -34,11 +34,6 @@
           </select>
         </label>
         <label>Servings <input name="servings" type="number" min="1" max="20" value="4"></label>
-        <label>Min rating
-          <select name="minRating">
-            <option value="">any</option><option value="4">4★+</option><option value="4.5">4.5★+</option>
-          </select>
-        </label>
         <label class="wide">Leave out <input name="exclude" placeholder="comma separated, e.g. mushrooms, cilantro"></label>
         <div class="wide actions"><button type="submit" class="primary" id="search-btn">Find recipes</button></div>
       </form>
@@ -53,8 +48,8 @@
       <div id="cart"></div>
     </section>
 
-    <!-- ============ LIBRARY ============ -->
-    <section id="view-library" class="view" hidden>
+    <!-- ============ RECIPES (saved library) ============ -->
+    <section id="view-recipes" class="view" hidden>
       <div class="card form">
         <label class="wide">Add a recipe by link
           <span class="row"><input id="add-url" type="url" placeholder="https://…"><button id="add-url-btn">Add</button></span>
@@ -102,6 +97,12 @@
         <h2 class="wide">Household (shared)</h2>
         <p class="wide hint">Saved on the relay, so both of you see the same store and pantry list.</p>
         <label>Store ZIP <span class="row"><input id="zip" inputmode="numeric" maxlength="5" placeholder="97214"><button type="button" id="zip-btn">Find stores</button></span></label>
+        <label>Minimum recipe rating
+          <select name="minRating">
+            <option value="0">Any</option><option value="3">3★ and up</option><option value="3.5">3.5★ and up</option>
+            <option value="4">4★ and up</option><option value="4.5">4.5★ and up</option>
+          </select>
+        </label>
         <label>Cart mode
           <select name="modality"><option value="PICKUP">Pickup</option><option value="DELIVERY">Delivery</option></select>
         </label>

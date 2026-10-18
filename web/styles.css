@@ -52,6 +52,7 @@ h3 { font-size: 1rem; margin: 0 0 4px; }
 .version { font-weight: 400; font-size: 0.75rem; color: var(--muted); }
 nav { display: flex; gap: 4px; }
 nav a { padding: 6px 10px; border-radius: 8px; text-decoration: none; color: var(--muted); }
+.nav-icon { display: none; }
 nav a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .badge { background: var(--accent); color: var(--accent-text); border-radius: 10px; padding: 0 7px; font-size: 0.8em; }
 
@@ -160,7 +161,10 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 @media (max-width: 520px) {
   main { padding: 12px; }
-  nav a { padding: 6px 7px; }
+  nav a { padding: 6px 10px; font-size: 1.25rem; }
+  .nav-icon { display: inline; }
+  .nav-label { display: none; }
+  nav .badge { font-size: 0.7rem; vertical-align: top; }
   .item { grid-template-columns: 44px 1fr; }
   .item img, .item .noimg { width: 44px; height: 44px; }
   .item .side { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; align-items: center; }

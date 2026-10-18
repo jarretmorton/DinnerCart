@@ -104,13 +104,13 @@ app's Settings page and stored only in that browser's localStorage.
 1. Open the site → **Settings**. Enter the relay URL, relay password and Gemini key, then **Save**.
 2. Press **Check setup**. It checks the relay, the Worker secrets, Gemini, and whether Kroger allows direct browser calls (CORS).
 3. Enter your ZIP → **Find stores** → choose your Fred Meyer. This is shared with the household.
-4. Edit the pantry staples list. Items on it are never added to the cart.
+4. Edit the pantry staples list, and the minimum recipe rating if 4★ is too strict. Items on it are never added to the cart.
 5. Press **Connect Fred Meyer** and log in once. The refresh token is stored in Workers KV and shared by both of you.
 
 ## Using it
 
-1. **Find**: describe what you want, then set time, servings, rating and exclusions.
-2. Pick recipes, and save good ones to the shared **Library**. You can also add any recipe by pasting its link.
+1. **Find**: describe what you want, then set time, servings and exclusions. Recipes rated below the household minimum (Settings, default 4★) are skipped; unrated ones are kept.
+2. Pick recipes, and save good ones to the shared **Recipes** tab. You can also add any recipe by pasting its link.
 3. **Cart**: adjust servings per recipe (quantities scale), then press **Match ingredients**.
 4. Review each line: swap to another candidate, search again, change the count, or remove it. Pantry staples, optional garnishes and water are listed under *Not adding*; tap ＋ to add one anyway.
 5. Press **Add to Fred Meyer cart**, then open the Fred Meyer app to review and check out.

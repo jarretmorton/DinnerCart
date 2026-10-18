@@ -34,5 +34,6 @@ export const saveSettings = (s) => write(SETTINGS_KEY, s);
 export const loadState = () => read(STATE_KEY, {});
 export const saveState = (s) => write(STATE_KEY, s);
 
-export const loadPrefs = () => ({ store: null, pantry: DEFAULT_PANTRY, modality: 'PICKUP', ...read(PREFS_KEY, {}) });
+export const DEFAULT_MIN_RATING = 4;
+export const loadPrefs = () => ({ store: null, pantry: DEFAULT_PANTRY, modality: 'PICKUP', minRating: DEFAULT_MIN_RATING, ...read(PREFS_KEY, {}) });
 export const savePrefs = (p) => write(PREFS_KEY, p);

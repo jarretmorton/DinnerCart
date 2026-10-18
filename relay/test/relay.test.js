@@ -244,6 +244,8 @@ test('library and prefs round trip through routes', async () => {
   assert.deepEqual((await put.json()).prefs.pantry, ['salt', 'pepper']);
   const bad = await handle(req('PUT', '/prefs', { body: { prefs: { modality: 'DRONE' } } }), env);
   assert.equal(bad.status, 400);
+  assert.equal((await handle(req('PUT', '/prefs', { body: { prefs: { minRating: 4.5 } } }), env)).status, 200);
+  assert.equal((await handle(req('PUT', '/prefs', { body: { prefs: { minRating: 9 } } }), env)).status, 400);
   const got = (await (await handle(req('GET', '/prefs'), env)).json()).prefs;
   assert.equal(got.modality, 'DELIVERY');
 });
