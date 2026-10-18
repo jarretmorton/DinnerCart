@@ -71,6 +71,7 @@ h3 { font-size: 1.05rem; font-weight: 600; margin: 0 0 4px; }
   background: var(--card); border-bottom: 1px dashed var(--rule);
 }
 .brand { font-weight: 800; font-size: 1.2rem; text-decoration: none; color: var(--text); }
+.brand-mark { width: 1.35em; height: 1.35em; border-radius: 22%; vertical-align: -0.3em; flex-shrink: 0; align-self: center; }
 .version { font-family: var(--sans); font-weight: 400; font-size: 0.72rem; color: var(--muted); }
 nav { display: flex; gap: 4px; }
 nav a { position: relative; display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 999px; text-decoration: none; color: var(--muted); }

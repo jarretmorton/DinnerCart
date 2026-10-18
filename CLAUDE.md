@@ -23,6 +23,9 @@ the change.
 - Icons: line icons from `web/js/icons.js` (`icon('name')`, or
   `data-icon="name"` in HTML). Don't use emoji in the UI; add a new icon in the
   same style instead (24px grid, 1.75 stroke, round caps, currentColor).
+- App icon: `web/icon.svg` is the master (also the header logo). If it changes,
+  re-render `web/favicon-32.png` (32px) and `web/apple-touch-icon.png` (180px)
+  from it.
 
 ## Before pushing
 
