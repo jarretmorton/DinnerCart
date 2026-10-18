@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Basil ground with faint tone-on-tone produce -->
+  <rect width="100" height="100" fill="#23744A"/>
+  <g fill="#2B8054">
+    <circle cx="11" cy="11" r="6"/><circle cx="11" cy="6" r="2"/>
+    <circle cx="10" cy="91" r="6"/><circle cx="10" cy="86" r="2"/>
+    <circle cx="90" cy="90" r="6"/><circle cx="90" cy="85" r="2"/>
+    <circle cx="92" cy="50" r="5.5"/>
+    <path transform="translate(50 6) rotate(-20)" d="M-7 0C-3-5 3-5 7 0C3 5-3 5-7 0Z"/>
+    <path transform="translate(89 12) rotate(35)" d="M-7 0C-3-5 3-5 7 0C3 5-3 5-7 0Z"/>
+    <path transform="translate(8 52) rotate(-40)" d="M-7 0C-3-5 3-5 7 0C3 5-3 5-7 0Z"/>
+    <path transform="translate(48 95) rotate(15)" d="M-7 0C-3-5 3-5 7 0C3 5-3 5-7 0Z"/>
+  </g>
+  <!-- Recipe card -->
+  <g transform="rotate(-10 45 23)">
+    <rect x="30" y="5" width="30" height="36" rx="4" fill="#FFFFFF"/>
+    <path d="M36 14H48.6" stroke="#D2412A" stroke-width="5" stroke-linecap="round"/>
+    <path d="M36 23H53M36 30H50" stroke="#23744A" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <!-- Basil sprig -->
+  <path d="M70 42C70 30 78 22 90 20C90 32 83 40 70 42Z" fill="#7DCB98"/>
+  <path d="M70 42C74 35 79 30 85 26" fill="none" stroke="#23744A" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- Tomato -->
+  <circle cx="60" cy="33" r="10" fill="#D2412A"/>
+  <path d="M60 25L56 21M60 25L64 21M60 25V20" stroke="#7DCB98" stroke-width="2.6" stroke-linecap="round"/>
+  <ellipse cx="56" cy="31" rx="2.2" ry="3.6" fill="#F26F57" transform="rotate(20 56 31)"/>
+  <!-- Cart -->
+  <path d="M8 22H18L25 40" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M22 40H90L82 70H32Z" fill="#FFFFFF"/>
+  <path d="M44 49L46 62M57 49V62M70 49L68 62" stroke="#23744A" stroke-width="4.5" stroke-linecap="round"/>
+  <!-- Tomato-slice wheels -->
+  <g fill="#D2412A"><circle cx="40" cy="82" r="8.5"/><circle cx="73" cy="82" r="8.5"/></g>
+  <g fill="#F26F57"><circle cx="40" cy="82" r="5.5"/><circle cx="73" cy="82" r="5.5"/></g>
+  <g fill="#FFFFFF">
+    <circle cx="37.6" cy="80.8" r="1.2"/><circle cx="42.4" cy="80.8" r="1.2"/><circle cx="40" cy="84.4" r="1.2"/>
+    <circle cx="70.6" cy="80.8" r="1.2"/><circle cx="75.4" cy="80.8" r="1.2"/><circle cx="73" cy="84.4" r="1.2"/>
+  </g>
+</svg>
