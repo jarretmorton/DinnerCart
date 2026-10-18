@@ -1,6 +1,7 @@
 // DinnerCart UI controller. Plain DOM; views are re-rendered from `state`.
 import { LIGHT_MODEL, createGemini, createModelSwitch } from './gemini.js';
-import { createRelay, productSearcher } from './relay.js';
+import { lastSearchRoute, productSearcher, resetDirectSearch } from './kroger.js';
+import { createRelay } from './relay.js';
 import { findRecipes, scaleFor } from './recipes.js';
 import { MAX_CANDIDATES, estimateTotal, heuristicPick, resolveIngredients, setPackages } from './resolver.js';
 import * as storage from './storage.js';
@@ -352,10 +353,10 @@ async function buildCart() {
 }
 
 async function searchFor(item, term) {
-  const { results, errors = {} } = await relay().products([term], prefs.store?.locationId);
+  const found = (await productSearcher(relay(), prefs.store?.locationId)([term]))[term];
   item.searchTerm = term;
-  item.candidates = (results[term] || []).filter((p) => p.upc).slice(0, MAX_CANDIDATES);
-  item.searchError = item.candidates.length ? null : errors[term] || null;
+  item.candidates = (Array.isArray(found) ? found : []).filter((p) => p.upc).slice(0, MAX_CANDIDATES);
+  item.searchError = item.candidates.length ? null : found?.error || null;
   item.choice = item.candidates.length ? heuristicPick(item, item.candidates) : -1;
   item.geminiChoice = undefined;
   item.reason = item.candidates.length ? 'your search' : item.searchError ? 'search failed' : 'no products found';
@@ -521,11 +522,16 @@ async function diagnose() {
     rows.push(line(false, `Gemini: ${err.message}`));
   }
   // Build-plan question: does Kroger allow direct browser calls (CORS)?
+  // Real product search, reporting whether it went direct from this device or via the relay.
   try {
-    const res = await fetch('https://api.kroger.com/v1/products?filter.term=milk', { mode: 'cors' });
-    rows.push(line(true, `Kroger CORS: browser CAN call api.kroger.com directly (HTTP ${res.status}). The relay is still needed for the client secret.`));
-  } catch {
-    rows.push(line(true, 'Kroger CORS: blocked for browsers, as expected; all Kroger calls go through the relay.'));
+    resetDirectSearch();
+    const milk = (await productSearcher(relay(), prefs.store?.locationId)(['milk'])).milk;
+    const route = { direct: 'directly from this device', relay: 'through the relay', mixed: 'partly through the relay' }[lastSearchRoute()] || '';
+    rows.push(Array.isArray(milk) && milk.length
+      ? line(true, `Fred Meyer product search works ${route} (${milk.length} results for "milk").`)
+      : line(false, `Fred Meyer product search failed ${route}: ${milk?.error || 'no results'}`));
+  } catch (err) {
+    rows.push(line(false, `Fred Meyer product search: ${err.message}`));
   }
   rows.push(line(Boolean(prefs.store), prefs.store ? `Store: ${prefs.store.name}` : 'No store chosen yet.'));
   out.innerHTML = rows.join('');

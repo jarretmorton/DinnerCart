@@ -3,12 +3,31 @@
 import { HttpError, fetchWithTimeout, randomHex } from './http.js';
 import { del, getJson, putJson } from './store.js';
 import { isAllowedReturnUrl } from './auth.js';
+// Shared with the browser, which searches Kroger directly when it can.
+import { cleanTerm, normalizeProduct } from '../../web/js/kroger-shared.js';
+
+export { cleanTerm, normalizeProduct };
 
 const USER_SCOPES = 'cart.basic:write';
 const APP_SCOPES = 'product.compact';
 const USER_KEY = 'kroger:user';
 const APP_KEY = 'kroger:app';
 const CART_BATCH = 25;
+// Kroger's API sits behind a bot firewall (Akamai). Identify ourselves; it
+// tends to reject anonymous requests.
+const UA = { 'user-agent': 'DinnerCart/1.0 (household grocery list; +https://github.com/jarretmorton/DinnerCart)' };
+
+// The firewall answers with an HTML "Access Denied" page, not Kroger JSON.
+const isFirewallBlock = (res) => res.status === 403 && /html/i.test(res.headers.get('content-type') || '');
+
+// One readable line instead of a page of HTML.
+export function describeKrogerError(path, status, body) {
+  const text = String(body || '');
+  if (status === 403 && /access denied/i.test(text)) return `Kroger ${path} was blocked by Kroger's firewall (403 Access Denied)`;
+  const title = text.match(/<title>([^<]*)<\/title>/i)?.[1]?.trim();
+  const detail = title || (text.trim().startsWith('<') ? '' : text.replace(/\s+/g, ' ').slice(0, 160));
+  return `Kroger ${path} returned ${status}${detail ? `: ${detail}` : ''}`;
+}
 
 function base(env) {
   return (env.KROGER_API_BASE || 'https://api.kroger.com/v1').replace(/\/$/, '');
@@ -29,6 +48,7 @@ async function tokenRequest(env, params, fetchImpl) {
   const res = await fetchWithTimeout(fetchImpl, `${base(env)}/connect/oauth2/token`, {
     method: 'POST',
     headers: {
+      ...UA,
       'content-type': 'application/x-www-form-urlencoded',
       authorization: `Basic ${btoa(`${env.KROGER_CLIENT_ID}:${env.KROGER_CLIENT_SECRET}`)}`,
     },
@@ -63,6 +83,13 @@ export async function getAppToken(env, fetchImpl = fetch) {
   }
   memoryAppToken = tokens;
   return tokens.access_token;
+}
+
+// The client-credentials token (product.compact only: read-only product
+// data, no cart or account access), so the browser can search directly.
+export async function appTokenForBrowser(env, fetchImpl = fetch) {
+  const access_token = await getAppToken(env, fetchImpl);
+  return { access_token, expires_at: memoryAppToken.expires_at };
 }
 
 export function resetMemoryToken() {
@@ -154,13 +181,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function krogerGet(env, path, fetchImpl, { retries = 2 } = {}) {
   const send = async () => fetchWithTimeout(fetchImpl, `${base(env)}${path}`, {
-    headers: { accept: 'application/json', authorization: `Bearer ${await getAppToken(env, fetchImpl)}` },
+    headers: { ...UA, accept: 'application/json', authorization: `Bearer ${await getAppToken(env, fetchImpl)}` },
   });
   let res = await send();
   for (let attempt = 0; ; attempt++) {
     if (res.status === 401 && attempt === 0) {
       resetMemoryToken();
       await del(env, APP_KEY);
+    } else if (isFirewallBlock(res) && attempt === 0) {
+      await sleep(1200);
     } else if ((res.status === 429 || res.status >= 500) && attempt < retries) {
       // Kroger rate-limits bursts; back off briefly (honoring Retry-After up to 3s).
       const retryAfter = Math.min(3, Number(res.headers.get('retry-after')) || 0);
@@ -172,38 +201,9 @@ async function krogerGet(env, path, fetchImpl, { retries = 2 } = {}) {
   }
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new HttpError(502, 'kroger_error', `Kroger ${path.split('?')[0]} returned ${res.status}${body ? `: ${body.slice(0, 200)}` : ''}`, body.slice(0, 500));
+    throw new HttpError(502, 'kroger_error', describeKrogerError(path.split('?')[0], res.status, body), body.slice(0, 500));
   }
   return res.json();
-}
-
-export function normalizeProduct(p) {
-  const item = p.items?.[0] || {};
-  const images = p.images || [];
-  const front = images.find((i) => i.perspective === 'front') || images[0];
-  const sizes = front?.sizes || [];
-  const image = (sizes.find((s) => s.size === 'medium') || sizes.find((s) => s.size === 'small') || sizes[0])?.url || null;
-  const promo = Number(item.price?.promo) || null;
-  return {
-    productId: p.productId,
-    upc: p.upc,
-    brand: p.brand || null,
-    description: p.description || '',
-    size: item.size || null,
-    soldBy: item.soldBy || null,
-    price: Number(item.price?.regular) || null,
-    promoPrice: promo,
-    inStock: item.inventory?.stockLevel ? item.inventory.stockLevel !== 'TEMPORARILY_OUT_OF_STOCK' : null,
-    stockLevel: item.inventory?.stockLevel || null,
-    image,
-    aisle: p.aisleLocations?.[0]?.description || null,
-    categories: p.categories || [],
-  };
-}
-
-// Kroger requires 3+ characters and at most 8 words.
-export function cleanTerm(term) {
-  return String(term || '').replace(/[^\p{L}\p{N}\s&'-]/gu, ' ').split(/\s+/).filter(Boolean).slice(0, 8).join(' ');
 }
 
 export async function searchProducts(env, term, locationId, { limit = 12, fetchImpl = fetch } = {}) {
@@ -273,14 +273,19 @@ export async function addToCart(env, items, modality = 'PICKUP', fetchImpl = fet
   for (const batch of batches) {
     const send = (token) => fetchWithTimeout(fetchImpl, `${base(env)}/cart/add`, {
       method: 'PUT',
-      headers: { 'content-type': 'application/json', accept: 'application/json', authorization: `Bearer ${token}` },
+      headers: { ...UA, 'content-type': 'application/json', accept: 'application/json', authorization: `Bearer ${token}` },
       body: JSON.stringify({ items: batch.map((b) => ({ ...b, modality: mode })) }),
     });
     let res = await send(await getUserToken(env, fetchImpl));
     if (res.status === 401) res = await send(await getUserToken(env, fetchImpl, { forceRefresh: true }));
+    // A firewall block never reached Kroger, so retrying can't double-add.
+    if (isFirewallBlock(res)) {
+      await sleep(1200);
+      res = await send(await getUserToken(env, fetchImpl));
+    }
     if (!res.ok) {
       const body = await res.text().catch(() => '');
-      throw new HttpError(502, 'kroger_cart_error', `Kroger cart add returned ${res.status} after ${added} items were added.`, { added, body: body.slice(0, 500) });
+      throw new HttpError(502, 'kroger_cart_error', `${describeKrogerError('cart add', res.status, body)}, after ${added} items were added.`, { added, body: body.slice(0, 500) });
     }
     added += batch.length;
   }

@@ -3,7 +3,7 @@ name: Deploy relay
 on:
   push:
     branches: [main]
-    paths: ["relay/**", ".github/workflows/deploy-relay.yml"]
+    paths: ["relay/**", "web/js/kroger-shared.js", ".github/workflows/deploy-relay.yml"]
   workflow_dispatch:
 
 concurrency: deploy-relay

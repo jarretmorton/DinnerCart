@@ -40,6 +40,7 @@ single-use `state` value.
 | `web/js/recipes.js` | Query generation (search and Recommendations), structured filters, Gemini ranking. |
 | `web/js/gemini.js` | Gemini client with the strong → light fallback. |
 | `web/js/suggestions.js` | Rotating "What sounds good?" ideas and the daily Gemini batch. |
+| `web/js/kroger.js`, `web/js/kroger-shared.js` | Direct-from-browser product search with relay fallback; product formatting shared with the relay. |
 | `web/js/icons.js` | The app's line icons. |
 | `web/js/version.js` | App version shown in the header. |
 | `web/styles.css`, `web/fonts/` | Design tokens and styles (light and night), self-hosted fonts. |
@@ -194,6 +195,7 @@ All routes need `X-Relay-Password`, except the OAuth callback.
 | `GET /kroger/locations` | `?zip=97214` | Fred Meyer stores within 25 miles (all Kroger-family stores if there are none) |
 | `POST /kroger/cart` | `{items: [{upc, quantity}], modality}` | `{added, batches}` (batches of 25) |
 | `GET /kroger/status` | | `{connected, connectedAt}` |
+| `GET /kroger/token` | | short-lived search-only token (`product.compact`, no cart access) so the browser can search Kroger directly |
 | `POST /kroger/oauth/start` | `{returnTo}` | `{url}` to send the browser to |
 | `GET /kroger/oauth/callback` | (from Kroger) | redirects back to the app |
 | `POST /kroger/disconnect` | | forgets the stored tokens |
@@ -206,7 +208,7 @@ instructions. The app links to the source page instead.
 ## Known constraints
 
 - The Kroger cart is write-only (see above). It allows about 5,000 cart calls per day, and DinnerCart uses one call per 25 items.
-- Kroger rate-limits bursts of product searches, so the relay runs at most 4 at a time and retries on "too many requests".
+- Kroger's API sits behind a bot firewall that sometimes blocks Cloudflare's shared servers ("403 Access Denied"). So the app searches products **directly from the phone**, using a search-only token from the relay (Kroger allows browser requests), and falls back to the relay per item if that fails. **Check setup** shows which path is working. Relay requests identify the app, retry once after a firewall block, and run at most 4 product searches at a time.
 - Pages that block bots or have no `schema.org/Recipe` markup are skipped. They're listed under "couldn't be read" with the reason.
 - Free Cloudflare Workers get 10 ms of CPU per request. That's why each recipe page is parsed in its own request.
 - The Gemini free tier is rate-limited. Each visit starts on the strong model (`gemini-flash-latest`). When it hits its limit, the app switches to the light model (`gemini-flash-lite-latest`) until you reload. The Strong/Light toggle in Settings shows which model is active and can be switched by hand.

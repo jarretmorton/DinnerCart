@@ -155,6 +155,32 @@ test('product search uses client-credentials token and normalizes products', asy
   assert.equal(new URL(fetchImpl.calls.at(-1).url).searchParams.get('filter.term').length > 0, true);
 });
 
+test('firewall blocks: one retry, then a readable error; browser token route', async () => {
+  const env = makeEnv();
+  const akamai = () => new Response('<HTML><HEAD><TITLE>Access Denied</TITLE></HEAD><BODY>You don\'t have permission to access "http&#58;&#47;&#47;api&#46;kroger" on this server.</BODY></HTML>', { status: 403, headers: { 'content-type': 'text/html' } });
+  let calls = 0;
+  const fetchImpl = mockFetch([
+    ['https://api.kroger.com/v1/connect/oauth2/token', (_u, init) => {
+      assert.match(init.headers['user-agent'], /^DinnerCart/);
+      return jsonRes({ access_token: 'app-token', expires_in: 1800 });
+    }],
+    ['https://api.kroger.com/v1/products', (url, init) => {
+      assert.match(init.headers['user-agent'], /^DinnerCart/);
+      const term = new URL(url).searchParams.get('filter.term');
+      if (term === 'once') return ++calls === 1 ? akamai() : jsonRes({ data: [{ productId: '1', upc: '0001', description: 'Ok', items: [{}] }] });
+      return akamai();
+    }],
+  ]);
+  const { results, errors } = await kroger.searchProductsMany(env, ['once', 'always'], '1', { fetchImpl });
+  assert.equal(results.once.length, 1, 'one firewall block is retried');
+  assert.equal(errors.always, "Kroger /products was blocked by Kroger's firewall (403 Access Denied)");
+  assert.equal(kroger.describeKrogerError('/products', 500, '<html><title>Oops</title></html>'), 'Kroger /products returned 500: Oops');
+
+  const tok = await kroger.appTokenForBrowser(env, fetchImpl);
+  assert.equal(tok.access_token, 'app-token');
+  assert.ok(tok.expires_at > Date.now());
+});
+
 test('cleanTerm enforces Kroger term rules', () => {
   assert.equal(kroger.cleanTerm('extra-virgin olive oil (cold pressed), 500ml'), 'extra-virgin olive oil cold pressed 500ml');
   assert.equal(kroger.cleanTerm('a b c d e f g h i j').split(' ').length, 8);
