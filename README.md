@@ -5,6 +5,9 @@ free recipes from the web, pick a few, and DinnerCart matches the ingredients
 to Fred Meyer products and adds them to our shared Fred Meyer cart. Checkout
 happens in the Fred Meyer app.
 
+- App: <https://jarretmorton.github.io/DinnerCart/>
+- Relay: `https://dinnercart-relay.jarret-morton.workers.dev`
+
 ```
  Browser (GitHub Pages, /web)                     Cloudflare Worker (/relay)
  ───────────────────────────                      ──────────────────────────
@@ -31,13 +34,21 @@ single-use `state` value.
 | Path | What |
 |---|---|
 | `web/` | The static site. Plain HTML and ES modules, no build step. |
+| `web/js/app.js` | UI controller: views, events, settings. |
 | `web/js/resolver.js` | Ingredient resolver (normalize → pantry → merge → search → pick → package count). Shared with the eval. |
 | `web/js/units.js` | Unit conversion and Kroger size parsing (`"6 ct / 12 fl oz"`, `"1/2 gal"`…). |
-| `web/js/recipes.js` | Query generation, structured filters, Gemini ranking. |
+| `web/js/recipes.js` | Query generation (search and Recommendations), structured filters, Gemini ranking. |
+| `web/js/gemini.js` | Gemini client with the strong → light fallback. |
+| `web/js/suggestions.js` | Rotating "What sounds good?" ideas and the daily Gemini batch. |
+| `web/js/icons.js` | The app's line icons. |
+| `web/js/version.js` | App version shown in the header. |
+| `web/styles.css`, `web/fonts/` | Design tokens and styles (light and night), self-hosted fonts. |
+| `scripts/stamp-site.mjs` | Adds a per-deploy `?v=` to every script and stylesheet so browsers never mix old and new files. |
 | `relay/` | The Cloudflare Worker: Brave proxy, JSON-LD extraction, Kroger OAuth/products/cart, recipe library, shared prefs. |
 | `eval/` | 50 real recipe lines, each with the product it should match, plus the scoring script. |
 | `test/`, `relay/test/` | Unit tests (`npm test`, no dependencies). |
 | `docs/build-plan.md` | The original build plan. |
+| `CLAUDE.md` | Working rules for Claude Code: version bumps, design language, checks before pushing. |
 
 ## One-time setup
 
@@ -80,10 +91,13 @@ for 7 days, so repeat searches are free.
 | Secret | `KROGER_CLIENT_SECRET` | from step 1 |
 | Secret | `RELAY_PASSWORD` | a long random string, e.g. `openssl rand -base64 24` |
 | Secret | `GEMINI_API_KEY` | optional, for the eval workflow (step 5) |
-| Variable | `KV_NAMESPACE_ID` | from step 3 |
+| Variable | `KV_NAMESPACE_ID` | from step 3 (a secret works too) |
 | Variable | `RELAY_URL` | the Worker URL, after the first deploy (used by the eval workflow) |
 
-**Settings → Pages → Source: GitHub Actions.**
+Also in repository **Settings**:
+- **General → Default branch:** `main`. The deploy workflows run on pushes to `main`.
+- **Pages → Build and deployment → Source:** GitHub Actions.
+- **Environments → `github-pages` → Deployment branches:** must allow `main`. GitHub creates this rule for whichever branch was the default when Pages was turned on.
 
 Push to `main`. The *Deploy relay* workflow publishes the Worker and pushes the
 four Worker secrets. The *Deploy site* workflow publishes `web/` to
@@ -103,18 +117,21 @@ app's Settings page and stored only in that browser's localStorage.
 
 1. Open the site → **Settings**. Enter the relay URL, relay password and Gemini key, then **Save**.
 2. Press **Check setup**. It checks the relay, the Worker secrets, Gemini, and whether Kroger allows direct browser calls (CORS).
-3. Enter your ZIP → **Find stores** → choose your Fred Meyer. This is shared with the household.
-4. Under **Household (shared)**, set the search defaults (max time, servings, minimum rating) and edit the pantry staples list. Items on it are never added to the cart.
-5. In the same Household section, press **Connect Fred Meyer** and log in once. The refresh token is stored in Workers KV and shared by both of you.
+3. Under **Household (shared)**, press **Connect Fred Meyer** and log in once. The refresh token is stored in Workers KV and shared by both of you.
+4. Enter your ZIP → **Find stores** → choose your Fred Meyer, and choose pickup or delivery.
+5. Set the search defaults (max time, servings, minimum rating), your "what to leave out" list, and the pantry staples list. Pantry items are never added to the cart.
+
+Everything under Household is saved on the relay, so both of you share it. The relay URL, password and Gemini key are per device.
 
 ## Using it
 
 1. **Find**: describe what you want, then set time, servings and what to leave out. The boxes rotate suggestions ("What sounds good?" ideas are written fresh by Gemini once a day and shared by both of you through the relay, using the light model, the season and your saved Recipes; a built-in list covers the gap); tap a box's label to use the idea shown (or, for "What to leave out?", your household list from Settings). Recipes rated below the household minimum (Settings, default 4★) are skipped; unrated ones are kept.
    Or press **Recommendations** (no fields needed): Gemini looks at your saved Recipes, plus anything you filled in, and finds new dishes in a similar vein, skipping ones you've already saved.
+   **Clear results** empties the results list.
 2. Pick recipes, and save good ones to the shared **Recipes** tab. You can also add any recipe by pasting its link.
-3. **Cart**: adjust servings per recipe (quantities scale), then press **Match ingredients**.
-4. Review each line: swap to another candidate, search again, change the count, or remove it. Pantry staples, optional garnishes and water are listed under *Not adding*; tap ＋ to add one anyway.
-5. Press **Add to Fred Meyer cart**, then open the Fred Meyer app to review and check out.
+3. **Cart**: adjust servings per recipe (quantities scale), then press **Match ingredients**. **Clear cart** empties the picks and shopping list in the app (not the Fred Meyer cart).
+4. Review each line: swap to another candidate, search again, change the count, or remove it. Pantry staples, optional garnishes and water are listed under *Not adding*; tap + to add one anyway. If a Fred Meyer search fails, the line says why.
+5. Press **Add to Fred Meyer cart**, then use **Open Fred Meyer cart** to review and check out. On phones it usually opens the Fred Meyer app.
 
 The Kroger cart API is **write-only**: DinnerCart can add items but can't see
 or remove them. If you press *Send again*, the items are added a second time,
@@ -122,7 +139,9 @@ and the app asks you to confirm first.
 
 ## Development
 
-The app version lives in `web/js/version.js` and shows in the header. Bump it with every change so you can tell whether a browser has the latest build (GitHub Pages can cache for up to 10 minutes).
+The app version lives in `web/js/version.js` and shows in the header. Bump it with every change so you can tell whether a browser has the latest build. GitHub Pages can cache the page for up to 10 minutes. The deploy stamps every file with the commit, so a page always loads code from its own deploy.
+
+The design language ("Farmers Market", with a matching night mode) and the icon rules are written down in `CLAUDE.md`.
 
 ```sh
 npm test                      # unit tests: relay + resolver + units + eval scoring
@@ -171,10 +190,10 @@ All routes need `X-Relay-Password`, except the OAuth callback.
 | `GET /health` | | which secrets/bindings are configured |
 | `POST /search` | `{queries: [..≤5]}` | merged, de-duplicated Brave results |
 | `POST /recipe` | `{url, refresh?}` | `{recipe}` parsed from JSON-LD, or `{recipe: null, reason}` |
-| `POST /kroger/products` | `{terms: [..≤20], locationId}` | `{results: {term: [product]}}` |
-| `GET /kroger/locations` | `?zip=97214` | nearby Fred Meyer stores |
+| `POST /kroger/products` | `{terms: [..≤20], locationId}` | `{results: {term: [product]}, errors: {term: message}}` |
+| `GET /kroger/locations` | `?zip=97214` | Fred Meyer stores within 25 miles (all Kroger-family stores if there are none) |
 | `POST /kroger/cart` | `{items: [{upc, quantity}], modality}` | `{added, batches}` (batches of 25) |
-| `GET /kroger/status` | | `{connected}` |
+| `GET /kroger/status` | | `{connected, connectedAt}` |
 | `POST /kroger/oauth/start` | `{returnTo}` | `{url}` to send the browser to |
 | `GET /kroger/oauth/callback` | (from Kroger) | redirects back to the app |
 | `POST /kroger/disconnect` | | forgets the stored tokens |
@@ -187,6 +206,7 @@ instructions. The app links to the source page instead.
 ## Known constraints
 
 - The Kroger cart is write-only (see above). It allows about 5,000 cart calls per day, and DinnerCart uses one call per 25 items.
+- Kroger rate-limits bursts of product searches, so the relay runs at most 4 at a time and retries on "too many requests".
 - Pages that block bots or have no `schema.org/Recipe` markup are skipped. They're listed under "couldn't be read" with the reason.
 - Free Cloudflare Workers get 10 ms of CPU per request. That's why each recipe page is parsed in its own request.
 - The Gemini free tier is rate-limited. Each visit starts on the strong model (`gemini-flash-latest`). When it hits its limit, the app switches to the light model (`gemini-flash-lite-latest`) until you reload. The Strong/Light toggle in Settings shows which model is active and can be switched by hand.
@@ -196,7 +216,7 @@ instructions. The app links to the source page instead.
 - [x] Kroger: OAuth (authorization code + refresh), product search, location search, batched cart add through the relay. Finding: Kroger *does* allow browser CORS (a direct call returns HTTP 401, not a CORS error), but the relay is still required because the client secret and the user tokens must not live in the browser.
 - [x] Ingredient resolver + 50-line eval set + scoring script.
 - [x] Recipe search: Brave + JSON-LD extraction in the Worker.
-- [x] UI: criteria, results, review screen, settings (Gemini key, relay password, store, pantry).
+- [x] UI: criteria, results, review screen, settings (Gemini key, relay password, store, pantry), plus Recommendations, daily ideas and the Farmers Market design.
 - [x] Saved recipe library, plus KV caching of parsed recipes and search results.
 
 Out of scope for the MVP: meal planning, price/coupon optimization, nutrition
