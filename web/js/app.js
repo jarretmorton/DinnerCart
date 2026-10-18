@@ -188,22 +188,29 @@ async function runSearch(event) {
     location.hash = 'settings';
     return;
   }
+  const recommend = event.submitter?.id === 'recommend-btn';
   const criteria = { ...readCriteria(event.target), minRating: prefs.minRating ?? storage.DEFAULT_MIN_RATING };
-  if (!criteria.wants) {
-    setStatus(status, 'Tell me what sounds good.', 'error');
+  if (!recommend && !criteria.wants) {
+    setStatus(status, 'Tell me what sounds good, or try Recommendations.', 'error');
     return;
   }
+  const buttons = [$('#search-btn'), $('#recommend-btn')];
   await guarded(status, async () => {
-    $('#search-btn').disabled = true;
+    buttons.forEach((b) => { b.disabled = true; });
     try {
       state.criteria = criteria;
-      const results = await findRecipes({ gemini: gemini(), relay: relay(), criteria, onProgress: (t) => setStatus(status, t) });
-      state.results = { ...results, minRating: criteria.minRating, at: Date.now() };
+      let liked;
+      if (recommend) {
+        if (!library) library = (await relay().library()).recipes;
+        liked = library;
+      }
+      const results = await findRecipes({ gemini: gemini(), relay: relay(), criteria, liked, onProgress: (t) => setStatus(status, t) });
+      state.results = { ...results, mode: recommend ? 'recommend' : 'find', basedOn: liked?.length || 0, minRating: criteria.minRating, at: Date.now() };
       persist();
       setStatus(status, '');
       renderResults();
     } finally {
-      $('#search-btn').disabled = false;
+      buttons.forEach((b) => { b.disabled = false; });
     }
   });
 }
@@ -219,10 +226,10 @@ function renderResults() {
   const failed = r.failed || [];
   el.innerHTML = `
     <div class="section-title">
-      <h2>${r.ranked.length ? plural(r.ranked.length, 'recipe') : 'No recipes matched'}</h2>
+      <h2>${r.ranked.length ? `${r.mode === 'recommend' ? 'Recommended: ' : ''}${plural(r.ranked.length, 'recipe')}` : 'No recipes matched'}</h2>
       <button class="small" data-action="clear-results">Clear results</button>
     </div>
-    <p class="muted small-text">Searched: ${r.queries.map(h).join(' · ')}${r.minRating ? ` · rated ${h(r.minRating)}★ and up` : ''}</p>
+    <p class="muted small-text">${r.mode === 'recommend' ? (r.basedOn ? `Based on ${plural(r.basedOn, 'saved recipe')} · ` : 'No saved recipes yet, so these are popular picks · ') : ''}Searched: ${r.queries.map(h).join(' · ')}${r.minRating ? ` · rated ${h(r.minRating)}★ and up` : ''}</p>
     <div class="grid">${r.ranked.map((x) => recipeCard(x.recipe, { reason: x.reason })).join('')}</div>
     ${rejected.length ? `<details class="card small-text"><summary>${rejected.length} filtered out</summary><ul>${rejected.map((x) =>
       `<li><a href="${h(x.recipe.url)}" target="_blank" rel="noopener">${h(x.recipe.name)}</a> — ${h(x.reason)}</li>`).join('')}</ul></details>` : ''}

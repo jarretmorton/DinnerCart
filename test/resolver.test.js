@@ -189,3 +189,29 @@ test('Gemini falls back to the light model on 429 and stays there', async () => 
   // A plain model id still works (eval script) with no switching.
   assert.equal(createGemini({ apiKey: 'k', model: 'x' }).model, 'x');
 });
+
+test('recommendations: taste profile in prompts, saved recipes skipped', async () => {
+  const { generateQueries, rankRecipes, describeTaste } = await import('../web/js/recipes.js');
+  const prompts = [];
+  const gemini = { json: async (prompt) => { prompts.push(prompt); return prompt.includes('Candidate recipes') ? { ranking: [{ index: 0, score: 80, reason: 'like your tacos' }] } : { queries: ['a recipe', 'b recipe', 'c recipe', 'd recipe'] }; } };
+  const liked = [{ url: 'https://x/tacos', name: 'Fish Tacos', cuisine: ['Mexican'], keywords: ['fish', 'tacos'] }];
+  assert.equal(describeTaste(liked), '- Fish Tacos (Mexican, fish, tacos)');
+
+  assert.equal((await generateQueries(gemini, { maxMinutes: 30 }, { liked })).length, 3);
+  assert.match(prompts[0], /Fish Tacos/);
+  assert.match(prompts[0], /NEW dishes/);
+  assert.match(prompts[0], /at most 30 minutes/);
+  await generateQueries(gemini, {}, { liked: [] });
+  assert.match(prompts[1], /haven't saved any recipes/);
+  await generateQueries(gemini, { wants: 'soup' });
+  assert.doesNotMatch(prompts[2], /saved/);
+
+  const recipe = { url: 'https://y/enchiladas', name: 'Enchiladas', site: 'y', ingredients: ['tortillas'] };
+  const ranked = await rankRecipes(gemini, [recipe], {}, { liked });
+  assert.equal(ranked[0].reason, 'like your tacos');
+  assert.match(prompts[3], /their taste/);
+
+  const { kept, rejected } = filterRecipes([recipe, { ...recipe, url: 'https://x/tacos', name: 'Fish Tacos' }], { skipUrls: new Set(['https://x/tacos']) });
+  assert.deepEqual(kept.map((r) => r.name), ['Enchiladas']);
+  assert.equal(rejected[0].reason, 'already in your Recipes');
+});
