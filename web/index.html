@@ -5,17 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>DinnerCart</title>
   <meta name="description" content="Find recipes and fill the Fred Meyer cart.">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛒</text></svg>">
+  <!--
+    App icon: a white cart full of groceries (recipe card, tomato, basil) on
+    tomato-slice wheels, on --basil. icon.svg is the master; favicon-32.png
+    covers browsers that ignore SVG favicons, and apple-touch-icon.png is
+    separate because iOS does not use SVG favicons for Add to Home Screen.
+  -->
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="preload" href="fonts/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="fonts/fonts.css">
   <link rel="stylesheet" href="styles.css">
-  <meta name="theme-color" content="#FFFBF4" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#231D18" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#191F1C" media="(prefers-color-scheme: dark)">
 </head>
 <body>
   <header class="top">
-    <a class="brand" href="#find">🛒 DinnerCart <span class="version" id="app-version"></span></a>
+    <a class="brand" href="#find"><img class="brand-mark" src="icon.svg" alt=""> DinnerCart <span class="version" id="app-version"></span></a>
     <nav>
       <a href="#find" data-nav="find" aria-label="Find"><span class="nav-icon" aria-hidden="true" data-icon="search"></span><span class="nav-label">Find</span></a>
       <a href="#cart" data-nav="cart" aria-label="Cart"><span class="nav-icon" aria-hidden="true" data-icon="basket"></span><span class="nav-label">Cart</span> <span class="badge" id="pick-count" hidden></span></a>
