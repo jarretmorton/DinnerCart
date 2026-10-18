@@ -67,7 +67,7 @@ const routes = {
     return { recipe: await librarySave(env, body.recipe) };
   },
 
-  // Called after a cart send: adds/updates each picked recipe as "recently picked".
+  // Called after a cart send: saves each picked recipe and records the pick.
   'POST /library/picked': async (req, env) => {
     const body = await readJson(req);
     await libraryPicked(env, body.recipes);

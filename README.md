@@ -129,10 +129,10 @@ Everything under Household is saved on the relay, so both of you share it. The r
 1. **Find**: describe what you want, then set time, servings and what to leave out. The boxes rotate suggestions ("What sounds good?" ideas are written fresh by Gemini once a day and shared by both of you through the relay, using the light model, the season and your saved Recipes; a built-in list covers the gap); tap a box's label to use the idea shown (or, for "What to leave out?", your household list from Settings). Recipes rated below the household minimum (Settings, default 4★) are skipped; unrated ones are kept.
    Or press **Recommendations** (no fields needed): Gemini looks at your saved Recipes, plus anything you filled in, and finds new dishes in a similar vein, skipping ones you've already saved.
    **Clear results** empties the results list.
-2. Pick recipes, and save good ones to the shared **Recipes** tab. You can also add any recipe by pasting its link.
+2. On any recipe, **Pick** it for this shop or **Save** it. The **Recipes** tab is one shared list of everything saved, by hand or automatically when sent to Fred Meyer, newest first, showing when each was last picked. **Pick** it again or **Remove** it from there. You can also add any recipe by pasting its link.
 3. **Cart**: adjust servings per recipe (quantities scale), then press **Match ingredients**. **Clear cart** empties the picks and shopping list in the app (not the Fred Meyer cart).
 4. Review each line: swap to another candidate, search again, change the count, or remove it. Pantry staples, optional garnishes and water are listed under *Not adding*; tap + to add one anyway. If a Fred Meyer search fails, the line says why.
-5. Press **Add to Fred Meyer cart**, then use **Open Fred Meyer cart** to review and check out. On phones it usually opens the Fred Meyer app. The recipes you sent are added to the shared **Recipes** tab under **Recently picked** (with the date and how many times), alongside the ones you **Saved**.
+5. Press **Add to Fred Meyer cart**, then use **Open Fred Meyer cart** to review and check out. On phones it usually opens the Fred Meyer app. The recipes you sent are saved to the shared **Recipes** tab automatically.
 
 The Kroger cart API is **write-only**: DinnerCart can add items but can't see
 or remove them. If you press *Send again*, the items are added a second time,
@@ -199,8 +199,8 @@ All routes need `X-Relay-Password`, except the OAuth callback.
 | `POST /kroger/oauth/start` | `{returnTo}` | `{url}` to send the browser to |
 | `GET /kroger/oauth/callback` | (from Kroger) | redirects back to the app |
 | `POST /kroger/disconnect` | | forgets the stored tokens |
-| `GET/POST/DELETE /library` | `{recipe}` / `?id=` | shared recipe library (`saved`, `lastPickedAt`, `pickedCount` per recipe) |
-| `POST /library/picked` | `{recipes: [..≤20]}` | marks recipes as just sent to the cart; returns the library |
+| `GET/POST/DELETE /library` | `{recipe}` / `?id=` | shared recipe library (`savedAt`, `lastPickedAt`, `pickedCount` per recipe) |
+| `POST /library/picked` | `{recipes: [..≤20]}` | saves recipes just sent to the cart and records the pick; returns the library |
 | `GET/PUT /prefs` | `{prefs: {store, pantry, leaveOut, modality, minRating, maxMinutes, servings, dailyIdeas}}` | shared household settings |
 
 Only the URL, ingredients and metadata of recipes are stored, never the

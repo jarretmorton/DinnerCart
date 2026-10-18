@@ -83,8 +83,7 @@ function allKnownRecipes() {
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const isPicked = (url) => state.selected.some((s) => s.recipe.url === url);
-// Saved by hand (recently-picked-only entries don't count).
-const savedEntry = (url) => (library || []).find((r) => r.url === url && r.saved !== false);
+const savedEntry = (url) => (library || []).find((r) => r.url === url);
 const pickSignature = () => state.selected.map((s) => `${s.recipe.url}@${s.servings}`).join('|');
 
 // ---------------------------------------------------------------- routing
@@ -384,7 +383,7 @@ async function sendCart() {
       setStatus(status, `Added ${r.added} products. Review and check out in Fred Meyer: `, 'ok');
       status.insertAdjacentHTML('beforeend', fmCartLink());
       renderCart();
-      // Remember what we're cooking: picked recipes go to the shared Recipes tab.
+      // Picked recipes are saved to the shared Recipes tab automatically.
       relay().libraryPicked(state.selected.slice(0, 20).map((s) => s.recipe))
         .then((r) => { library = r.recipes; })
         .catch((err) => console.warn('could not record picked recipes', err));
@@ -419,25 +418,24 @@ async function loadLibrary(force = false) {
   renderLibrary();
 }
 
-const RECENT_MAX = 12;
 const shortDate = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+// Most recent of saving or sending to the cart.
+const lastActivity = (r) => [r.lastPickedAt, r.savedAt].filter(Boolean).sort().pop() || '';
 
+// One list: recipes saved by hand and those saved automatically when sent to
+// Fred Meyer, newest activity first. Each can be picked again or removed.
 function renderLibrary() {
   const q = $('#library-filter').value.trim().toLowerCase();
-  const list = (library || []).filter((r) => !q || [r.name, r.site, ...(r.ingredients || []), ...(r.cuisine || [])].join(' ').toLowerCase().includes(q));
-  const recent = list.filter((r) => r.lastPickedAt)
-    .sort((a, b) => b.lastPickedAt.localeCompare(a.lastPickedAt))
-    .slice(0, RECENT_MAX);
-  const saved = list.filter((r) => r.saved !== false);
-  const pickedNote = (r) => `Picked ${shortDate(r.lastPickedAt)}${r.pickedCount > 1 ? ` · ${r.pickedCount}× so far` : ''}`;
-  const section = (title, items, cards) => (items.length
-    ? `<div class="section-title"><h2>${title}</h2><span class="muted small-text">${items.length}</span></div><div class="grid">${cards}</div>`
-    : '');
-  const html = [
-    section('Recently picked', recent, recent.map((r) => recipeCard(r, { reason: pickedNote(r) })).join('')),
-    section('Saved', saved, saved.map((r) => recipeCard(r, { libraryId: r.id })).join('')),
-  ].join('');
-  $('#library').innerHTML = html || `<p class="muted">${library?.length ? 'No matches.' : 'Nothing here yet. Save recipes from search results or add one by link; recipes you send to Fred Meyer show up under Recently picked.'}</p>`;
+  const list = (library || [])
+    .filter((r) => !q || [r.name, r.site, ...(r.ingredients || []), ...(r.cuisine || [])].join(' ').toLowerCase().includes(q))
+    .sort((a, b) => lastActivity(b).localeCompare(lastActivity(a)));
+  const note = (r) => (r.lastPickedAt
+    ? `Picked ${shortDate(r.lastPickedAt)}${r.pickedCount > 1 ? ` · ${r.pickedCount}× so far` : ''}`
+    : r.savedAt ? `Saved ${shortDate(r.savedAt)}` : '');
+  $('#library').innerHTML = list.length
+    ? `<div class="section-title"><h2>Saved recipes</h2><span class="muted small-text">${list.length}</span></div>
+       <div class="grid">${list.map((r) => recipeCard(r, { libraryId: r.id, reason: note(r) })).join('')}</div>`
+    : `<p class="muted">${library?.length ? 'No matches.' : 'Nothing saved yet. Save recipes from search results or add one by link. Recipes you send to Fred Meyer are saved here automatically.'}</p>`;
 }
 
 async function saveRecipe(url) {
