@@ -156,13 +156,16 @@ export function groupEntries(entries, { merge = true } = {}) {
 export async function findCandidates(items, searchProducts) {
   const terms = [...new Set(items.map((i) => i.searchTerm))];
   const found = await searchProducts(terms);
+  // A term's value is a product list, or {error} when the search itself failed.
+  const listFor = (map, term) => (Array.isArray(map[term]) ? map[term] : []);
   // Retry with the plain item name when the search term found nothing.
-  const retry = items.filter((i) => !(found[i.searchTerm] || []).length && itemKey(i.name) !== itemKey(i.searchTerm));
+  const retry = items.filter((i) => !listFor(found, i.searchTerm).length && itemKey(i.name) !== itemKey(i.searchTerm));
   const retryFound = retry.length ? await searchProducts([...new Set(retry.map((i) => i.name))]) : {};
   for (const item of items) {
-    let list = found[item.searchTerm] || [];
-    if (!list.length && retryFound[item.name]?.length) list = retryFound[item.name];
+    let list = listFor(found, item.searchTerm);
+    if (!list.length && listFor(retryFound, item.name).length) list = listFor(retryFound, item.name);
     item.candidates = list.filter((p) => p.upc).slice(0, MAX_CANDIDATES);
+    item.searchError = item.candidates.length ? null : (found[item.searchTerm]?.error || retryFound[item.name]?.error || null);
   }
 }
 
@@ -198,7 +201,7 @@ export async function pickProducts(items, gemini, { concurrency = 2 } = {}) {
   for (const item of items) {
     if (!item.candidates.length) {
       item.choice = -1;
-      item.reason = 'no products found';
+      item.reason = item.searchError ? 'search failed' : 'no products found';
     }
     setPackages(item);
   }

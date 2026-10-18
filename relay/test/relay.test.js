@@ -247,3 +247,20 @@ test('library and prefs round trip through routes', async () => {
   const got = (await (await handle(req('GET', '/prefs'), env)).json()).prefs;
   assert.equal(got.modality, 'DELIVERY');
 });
+
+test('product search retries Kroger 429s and reports persistent errors per term', async () => {
+  const env = makeEnv();
+  let calls = 0;
+  const fetchImpl = mockFetch([
+    ['https://api.kroger.com/v1/connect/oauth2/token', () => jsonRes({ access_token: 'app-token', expires_in: 1800 })],
+    ['https://api.kroger.com/v1/products', (url) => {
+      const term = new URL(url).searchParams.get('filter.term');
+      if (term === 'flaky') return ++calls === 1 ? new Response('slow down', { status: 429 }) : jsonRes({ data: [{ productId: '1', upc: '0001', description: 'Flaky', items: [{}] }] });
+      return new Response('{"errors":{"reason":"nope"}}', { status: 400 });
+    }],
+  ]);
+  const { results, errors } = await kroger.searchProductsMany(env, ['flaky', 'broken'], '70100123', { fetchImpl });
+  assert.equal(results.flaky.length, 1, '429 retried and succeeded');
+  assert.deepEqual(results.broken, []);
+  assert.match(errors.broken, /returned 400: \{"errors"/);
+});

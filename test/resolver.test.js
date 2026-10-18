@@ -156,3 +156,17 @@ test('recipe filters and scaling', () => {
   assert.equal(scaleFor({ servings: 6 }, 4), 0.67);
   assert.equal(scaleFor({ servings: null }, 4), 1);
 });
+
+test('search errors are kept on the item instead of looking like "no products"', async () => {
+  const gemini = fakeGemini({ normalized: NORMALIZED, pick: () => ({ choice: 0, packages: 1, reason: '' }) });
+  const { items } = await resolveIngredients({
+    recipes: [{ name: 'x', ingredients: ['1 onion, diced', '4 cups chicken broth'] }],
+    gemini,
+    searchProducts: async (terms) => Object.fromEntries(terms.map((t) => [t, t === 'chicken broth' ? { error: 'Kroger /products returned 429' } : CATALOG[t] || []])),
+  });
+  const broth = items.find((i) => i.name === 'chicken broth');
+  assert.equal(broth.choice, -1);
+  assert.equal(broth.searchError, 'Kroger /products returned 429');
+  assert.equal(broth.reason, 'search failed');
+  assert.equal(items.find((i) => i.name === 'yellow onion').searchError, null);
+});

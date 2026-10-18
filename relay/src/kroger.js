@@ -150,22 +150,29 @@ export async function disconnect(env) {
 
 // ---- API calls ----
 
-async function krogerGet(env, path, fetchImpl) {
-  let token = await getAppToken(env, fetchImpl);
-  let res = await fetchWithTimeout(fetchImpl, `${base(env)}${path}`, {
-    headers: { accept: 'application/json', authorization: `Bearer ${token}` },
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function krogerGet(env, path, fetchImpl, { retries = 2 } = {}) {
+  const send = async () => fetchWithTimeout(fetchImpl, `${base(env)}${path}`, {
+    headers: { accept: 'application/json', authorization: `Bearer ${await getAppToken(env, fetchImpl)}` },
   });
-  if (res.status === 401) {
-    resetMemoryToken();
-    await del(env, APP_KEY);
-    token = await getAppToken(env, fetchImpl);
-    res = await fetchWithTimeout(fetchImpl, `${base(env)}${path}`, {
-      headers: { accept: 'application/json', authorization: `Bearer ${token}` },
-    });
+  let res = await send();
+  for (let attempt = 0; ; attempt++) {
+    if (res.status === 401 && attempt === 0) {
+      resetMemoryToken();
+      await del(env, APP_KEY);
+    } else if ((res.status === 429 || res.status >= 500) && attempt < retries) {
+      // Kroger rate-limits bursts; back off briefly (honoring Retry-After up to 3s).
+      const retryAfter = Math.min(3, Number(res.headers.get('retry-after')) || 0);
+      await sleep(Math.max(retryAfter * 1000, 400 * 2 ** attempt));
+    } else {
+      break;
+    }
+    res = await send();
   }
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new HttpError(502, 'kroger_error', `Kroger ${path.split('?')[0]} returned ${res.status}.`, body.slice(0, 500));
+    throw new HttpError(502, 'kroger_error', `Kroger ${path.split('?')[0]} returned ${res.status}${body ? `: ${body.slice(0, 200)}` : ''}`, body.slice(0, 500));
   }
   return res.json();
 }
@@ -213,16 +220,23 @@ export async function searchProductsMany(env, terms, locationId, opts = {}) {
   if (list.length > 20) throw new HttpError(400, 'too_many_terms', 'At most 20 terms per request.');
   const results = {};
   const errors = {};
-  // Get the token first so the parallel searches below don't each request one.
+  // Get the token first so the searches below don't each request one.
   if (list.length) await getAppToken(env, opts.fetchImpl);
-  await Promise.all(list.map(async (term) => {
-    try {
-      results[term] = await searchProducts(env, term, locationId, opts);
-    } catch (err) {
-      errors[term] = err.message;
-      results[term] = [];
+  // A few at a time: Kroger rate-limits bursts of parallel requests.
+  let next = 0;
+  const worker = async () => {
+    while (next < list.length) {
+      const term = list[next++];
+      try {
+        results[term] = await searchProducts(env, term, locationId, opts);
+      } catch (err) {
+        console.error('product search failed', term, err.message);
+        errors[term] = err.message;
+        results[term] = [];
+      }
     }
-  }));
+  };
+  await Promise.all(Array.from({ length: Math.min(4, list.length) }, worker));
   return { results, errors };
 }
 

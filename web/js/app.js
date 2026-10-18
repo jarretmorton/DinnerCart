@@ -278,7 +278,7 @@ function itemRow(item) {
         <div class="need"><strong>${h(item.name)}</strong> · ${h(summarizeNeeds(item.needs))}${item.recipes.length > 1 ? ` · ${item.recipes.length} recipes` : ''}</div>
         ${item.candidates.length
           ? `<select data-action="swap" data-key="${h(item.key)}" aria-label="Product">${options}<option value="-1" ${item.choice === -1 ? 'selected' : ''}>— none of these —</option></select>`
-          : '<div class="product-meta">No products found. Try another search below.</div>'}
+          : `<div class="product-meta">${item.searchError ? `Fred Meyer search failed: ${h(item.searchError)}` : 'No products found. Try another search below.'}</div>`}
         ${p ? `<div class="product-meta">${[p.brand, p.size, p.price && money(p.promoPrice || p.price) + (p.promoPrice ? ' sale' : ''), p.aisle, p.inStock === false && '⚠ out of stock', item.reason].filter(Boolean).map(h).join(' · ')}</div>` : ''}
         <details ${p ? '' : 'open'}><summary>Recipe lines · search again</summary>
           <ul>${lines}</ul>
@@ -313,18 +313,20 @@ async function buildCart() {
     });
     state.cart = { ...result, signature: pickSignature(), builtAt: Date.now(), sentAt: null };
     persist();
-    setStatus(status, '');
+    const failed = result.items.filter((i) => i.searchError);
+    setStatus(status, failed.length ? `Fred Meyer search failed for ${plural(failed.length, 'item')}: ${failed[0].searchError}` : '', 'error');
     renderCart();
   });
 }
 
 async function searchFor(item, term) {
-  const { results } = await relay().products([term], prefs.store?.locationId);
+  const { results, errors = {} } = await relay().products([term], prefs.store?.locationId);
   item.searchTerm = term;
   item.candidates = (results[term] || []).filter((p) => p.upc).slice(0, MAX_CANDIDATES);
+  item.searchError = item.candidates.length ? null : errors[term] || null;
   item.choice = item.candidates.length ? heuristicPick(item, item.candidates) : -1;
   item.geminiChoice = undefined;
-  item.reason = item.candidates.length ? 'your search' : 'no products found';
+  item.reason = item.candidates.length ? 'your search' : item.searchError ? 'search failed' : 'no products found';
   setPackages(item);
 }
 

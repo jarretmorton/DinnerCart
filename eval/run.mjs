@@ -66,14 +66,15 @@ async function searchProducts(terms) {
   const missing = [];
   for (const t of terms) {
     const k = `${locationId}|${t.toLowerCase()}`;
-    if (useCache && cache[k]) out[t] = cache[k];
+    if (useCache && Array.isArray(cache[k])) out[t] = cache[k];
     else missing.push(t);
   }
   if (missing.length) {
     const fresh = await live(missing);
     for (const t of missing) {
       out[t] = fresh[t] || [];
-      cache[`${locationId}|${t.toLowerCase()}`] = out[t];
+      if (Array.isArray(out[t])) cache[`${locationId}|${t.toLowerCase()}`] = out[t];
+      else console.error(`! search failed for "${t}": ${out[t].error}`);
     }
   }
   return out;

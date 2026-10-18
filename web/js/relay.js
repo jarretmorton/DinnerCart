@@ -51,13 +51,14 @@ export function createRelay({ url, password, fetchImpl = globalThis.fetch.bind(g
 }
 
 // Product search for the resolver: chunks terms to the relay's limit and
-// returns {term: products[]}.
+// returns {term: products[]}, or {term: {error}} when Kroger's search failed
+// (so the UI can say why instead of "no products found").
 export function productSearcher(relay, locationId) {
   return async (terms) => {
     const out = {};
     for (let i = 0; i < terms.length; i += 15) {
-      const { results } = await relay.products(terms.slice(i, i + 15), locationId);
-      Object.assign(out, results);
+      const { results, errors = {} } = await relay.products(terms.slice(i, i + 15), locationId);
+      for (const [term, products] of Object.entries(results)) out[term] = errors[term] ? { error: errors[term] } : products;
     }
     return out;
   };
