@@ -8,6 +8,10 @@ happens in the Fred Meyer app.
 - App: <https://jarretmorton.github.io/DinnerCart/>
 - Relay: `https://dinnercart-relay.jarret-morton.workers.dev`
 
+Want it for your household? Each household runs its own copy: its own site,
+relay, Fred Meyer login, shared recipes and password. It's all free tiers.
+See [Run your own DinnerCart](#run-your-own-dinnercart).
+
 ```
  Browser (GitHub Pages, /web)                     Cloudflare Worker (/relay)
  ───────────────────────────                      ──────────────────────────
@@ -41,21 +45,33 @@ single-use `state` value.
 | `web/js/gemini.js` | Gemini client with the strong → light fallback. |
 | `web/js/suggestions.js` | Rotating "What sounds good?" ideas and the daily Gemini batch. |
 | `web/js/library.js` | Recipes tab grouping (This week / Last week / Last 30 days / Older). |
+| `web/js/config.js` | The relay URL, filled in at deploy from the `RELAY_URL` repository variable. |
+| `web/js/setup-link.js` | The "Share setup link" that sets up another phone in one tap. |
 | `web/js/kroger.js`, `web/js/kroger-shared.js` | Direct-from-browser product search with relay fallback; product formatting shared with the relay. |
 | `web/js/icons.js` | The app's line icons. |
 | `web/js/version.js` | App version shown in the header. |
 | `web/styles.css`, `web/fonts/` | Design tokens and styles (light and night), self-hosted fonts. |
-| `scripts/stamp-site.mjs` | Adds a per-deploy `?v=` to every script and stylesheet so browsers never mix old and new files. |
+| `scripts/stamp-site.mjs` | Adds a per-deploy `?v=` to every script and stylesheet so browsers never mix old and new files, and builds in the relay URL. |
 | `relay/` | The Cloudflare Worker: Brave proxy, JSON-LD extraction, Kroger OAuth/products/cart, recipe library, shared prefs. |
 | `eval/` | 50 real recipe lines, each with the product it should match, plus the scoring script. |
 | `test/`, `relay/test/` | Unit tests (`npm test`, no dependencies). |
 | `docs/build-plan.md` | The original build plan. |
 | `CLAUDE.md` | Working rules for Claude Code: version bumps, design language, checks before pushing. |
 
-## One-time setup
+## Run your own DinnerCart
 
-Do these in order. Each step tells you what to save; the GitHub secrets list
-at the end collects them all.
+One person per household does this once, in about 30–45 minutes. Nothing in
+the code needs editing: the site and relay work out their addresses from your
+GitHub account and repository name.
+
+### 0. Fork
+
+Fork this repository on GitHub (or copy it into a new repository). Keep the
+name `DinnerCart` or pick your own. The site will live at
+`https://<your-github-name>.github.io/<repo-name>/`.
+
+Then do these in order. Each step tells you what to save; the GitHub settings
+table in step 4 collects them all.
 
 ### 1. Kroger developer app (do this first; it's the riskiest part)
 
@@ -94,20 +110,25 @@ for 7 days, so repeat searches are free.
 | Secret | `RELAY_PASSWORD` | a long random string, e.g. `openssl rand -base64 24` |
 | Secret | `GEMINI_API_KEY` | optional, for the eval workflow (step 5) |
 | Variable | `KV_NAMESPACE_ID` | from step 3 (a secret works too) |
-| Variable | `RELAY_URL` | the Worker URL, after the first deploy (used by the eval workflow) |
+| Variable | `RELAY_URL` | the Worker URL, after the first deploy. Built into the site so nobody has to type it; also used by the eval workflow |
+| Variable | `APP_URL` | optional: only if the site isn't at your GitHub Pages address (e.g. a custom domain) |
 
 Also in repository **Settings**:
 - **General → Default branch:** `main`. The deploy workflows run on pushes to `main`.
 - **Pages → Build and deployment → Source:** GitHub Actions.
 - **Environments → `github-pages` → Deployment branches:** must allow `main`. GitHub creates this rule for whichever branch was the default when Pages was turned on.
 
-Push to `main`. The *Deploy relay* workflow publishes the Worker and pushes the
-four Worker secrets. The *Deploy site* workflow publishes `web/` to
-`https://jarretmorton.github.io/DinnerCart/`.
+Push to `main`, or run both workflows from the **Actions** tab. The *Deploy
+relay* workflow publishes the Worker, pushes the four Worker secrets, and
+points the relay at your site (`https://<owner>.github.io/<repo>/`, or
+`APP_URL`). The relay only answers browsers from that site and
+`http://localhost:8080`. The *Deploy site* workflow publishes `web/` to your
+GitHub Pages address.
 
-If the site lives somewhere else (a fork, a custom domain), update
-`ALLOWED_ORIGINS` and `APP_URL` in `relay/wrangler.toml`. The relay only
-answers browsers from those origins.
+The first relay deploy prints the Worker URL. Save it as the `RELAY_URL`
+variable, add its `/kroger/oauth/callback` to the Kroger app (step 1), then
+run *Deploy site* again from the Actions tab so the site picks it up. After
+that, every push to `main` deploys whatever changed.
 
 ### 5. Gemini key (each person, on each device)
 
@@ -117,13 +138,23 @@ app's Settings page and stored only in that browser's localStorage.
 
 ### 6. In the app
 
-1. Open the site → **Settings**. Enter the relay URL, relay password and Gemini key, then **Save**.
+1. Open the site → **Settings**. Enter the relay password and Gemini key, then **Save**. The relay URL is already built in (leave it blank) if you set `RELAY_URL`.
 2. Press **Check setup**. It checks the relay, the Worker secrets, Gemini, and whether Kroger allows direct browser calls (CORS).
 3. Under **Household (shared)**, press **Connect Fred Meyer** and log in once. The refresh token is stored in Workers KV and shared by both of you.
 4. Enter your ZIP → **Find stores** → choose your Fred Meyer, and choose pickup or delivery.
 5. Set the search defaults (max time, servings, minimum rating), your "what to leave out" list, and the pantry staples list. Pantry items are never added to the cart.
 
 Everything under Household is saved on the relay, so both of you share it. The relay URL, password and Gemini key are per device.
+
+### 7. The rest of the household
+
+On a phone that's set up, go to **Settings → Share setup link** and send it
+to the other phone (it uses the share sheet, or copies the link). Opening it
+saves the relay password, plus your Gemini key if you ticked **Include my
+Gemini key**, on that phone. Otherwise they add their own key, so each person
+uses their own free Gemini quota. The settings travel in the part of the
+link after `#`, which browsers never send to any server. The link does carry
+the relay password, so only send it within your household.
 
 ## Using it
 
@@ -210,7 +241,7 @@ instructions. The app links to the source page instead.
 ## Known constraints
 
 - The Kroger cart is write-only (see above). It allows about 5,000 cart calls per day, and DinnerCart uses one call per 25 items.
-- Kroger's API sits behind a bot firewall that sometimes blocks Cloudflare's shared servers ("403 Access Denied"). So the app searches products **directly from the phone**, using a search-only token from the relay (Kroger allows browser requests), and falls back to the relay per item if that fails. If the browser won't send the key as a header (CORS), it retries with the key in the web address. **Check setup** shows which path is working and, if direct search fails, why. Relay requests identify the app, run 2 product searches at a time, retry once after a firewall block and then stop for that request, and cache product results for 6 hours.
+- Kroger's API sits behind a bot firewall that sometimes blocks Cloudflare's shared servers ("403 Access Denied"). So the app searches products **directly from the phone**, using a search-only token from the relay in the web address (Kroger allows browser requests, but refuses the CORS preflight a header would need), and falls back to the relay per item if that fails. **Check setup** shows which path is working and, if direct search fails, why. Relay requests identify the app, run 2 product searches at a time, retry once after a firewall block and then stop for that request, and cache product results for 6 hours.
 - Pages that block bots or have no `schema.org/Recipe` markup are skipped. They're listed under "couldn't be read" with the reason.
 - Free Cloudflare Workers get 10 ms of CPU per request. That's why each recipe page is parsed in its own request.
 - The Gemini free tier is rate-limited. Each visit starts on the strong model (`gemini-flash-latest`). When it hits its limit, the app switches to the light model (`gemini-flash-lite-latest`) until you reload. The Strong/Light toggle in Settings shows which model is active and can be switched by hand.
@@ -224,4 +255,5 @@ instructions. The app links to the source page instead.
 - [x] Saved recipe library, plus KV caching of parsed recipes and search results.
 
 Out of scope for the MVP: meal planning, price/coupon optimization, nutrition
-tracking, multiple households, purchase-history learning.
+tracking, purchase-history learning. One relay serves one household; other
+households run their own copy (see above).

@@ -114,6 +114,8 @@ fieldset input { width: auto; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .actions button { white-space: normal; }
 .hint { margin: -6px 0 0; font-size: 0.85rem; color: var(--muted); }
+.inline-check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); cursor: pointer; }
+.inline-check input { width: auto; accent-color: var(--basil); }
 
 button {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;

@@ -29,6 +29,22 @@ jobs:
             fi
             sed -i "s/REPLACE_WITH_KV_NAMESPACE_ID/$KV_NAMESPACE_ID/" wrangler.toml
           fi
+      # Where this repo's site lives, so the relay answers it and the Fred Meyer
+      # login returns to it. Defaults to this repo's GitHub Pages address; set
+      # the APP_URL repository variable for a custom domain.
+      - name: Fill in the app's address
+        working-directory: relay
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          repo="${GITHUB_REPOSITORY#*/}"
+          if [ -z "$APP_URL" ]; then
+            if [ "${repo,,}" = "$owner.github.io" ]; then APP_URL="https://$owner.github.io/"; else APP_URL="https://$owner.github.io/$repo/"; fi
+          fi
+          origin="$(echo "$APP_URL" | sed -E 's|^(https?://[^/]+).*|\1|')"
+          sed -i -E "s|^ALLOWED_ORIGINS = .*|ALLOWED_ORIGINS = \"$origin,http://localhost:8080\"|; s|^APP_URL = .*|APP_URL = \"$APP_URL\"|" wrangler.toml
+          grep -E '^(ALLOWED_ORIGINS|APP_URL) =' wrangler.toml
       - run: npm ci
         working-directory: relay
       - uses: cloudflare/wrangler-action@v3

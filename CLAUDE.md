@@ -40,4 +40,9 @@ Pushing to `main` deploys automatically:
 - `web/**` → GitHub Pages (https://jarretmorton.github.io/DinnerCart/)
 - `relay/**` → Cloudflare Worker (https://dinnercart-relay.jarret-morton.workers.dev)
 
+Other households run their own fork, so keep the code free of this
+household's addresses: the relay URL comes from the `RELAY_URL` repository
+variable (stamped into `web/js/config.js`), and the relay's `ALLOWED_ORIGINS`
+and `APP_URL` are filled in from the repository name by `deploy-relay.yml`.
+
 See README.md for architecture, setup and the relay API.

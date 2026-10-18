@@ -2,27 +2,22 @@
 // requests, and searching from the phone's own connection avoids the bot
 // firewall that sometimes blocks the relay's shared Cloudflare servers.
 // The relay supplies a short-lived, search-only token (no cart access) and
-// is the fallback whenever a direct search fails.
+// is the fallback whenever a direct search fails. The token goes in the web
+// address: an Authorization header would need a CORS preflight, which
+// Kroger refuses, while a plain GET needs none.
 import { KROGER_API, cleanTerm, normalizeProduct } from './kroger-shared.js';
 import { mapLimit } from './util.js';
 
 let token = null;
 let directOff = false; // set when the browser can't reach Kroger at all (e.g. CORS)
-
-// How the token is sent. 'header' (Authorization) needs the browser's CORS
-// preflight to succeed; if it doesn't, 'query' puts it in the URL, which is
-// a "simple" request with no preflight.
-let authMode = 'header';
 let lastRoute = null; // 'direct' | 'relay' | 'mixed', for "Check setup"
 let lastProblem = null; // why direct search last failed, in words
 export const lastSearchRoute = () => lastRoute;
 export const lastDirectProblem = () => lastProblem;
-export const directAuthMode = () => authMode;
 
 export function resetDirectSearch() {
   token = null;
   directOff = false;
-  authMode = 'header';
   lastRoute = null;
   lastProblem = null;
 }
@@ -55,25 +50,13 @@ export function productSearcher(relay, locationId, { fetchImpl = globalThis.fetc
     const params = new URLSearchParams({ 'filter.term': t, 'filter.limit': '12' });
     if (locationId) params.set('filter.locationId', locationId);
     const url = `${KROGER_API}/products?${params}`;
-    const send = async (force) => {
-      const tok = await getToken(force);
-      if (authMode === 'header') {
-        try {
-          return await fetchImpl(url, { headers: { accept: 'application/json', authorization: `Bearer ${tok}` } });
-        } catch (err) {
-          if (!(err instanceof TypeError)) throw err;
-          authMode = 'query';
-          lastProblem = `the browser wouldn't send the search key as a header (${err.message})`;
-        }
-      }
-      return fetchImpl(`${url}&access_token=${encodeURIComponent(tok)}`);
-    };
+    const send = async (force) => fetchImpl(`${url}&access_token=${encodeURIComponent(await getToken(force))}`);
     let res = await send(false);
     if (res.status === 401) res = await send(true);
     if (!res.ok) {
-      // A 401 with the key in the URL means Kroger won't take it that way: stop trying direct.
-      if (res.status === 401 && authMode === 'query') directOff = true;
-      throw new Error(`Kroger returned ${res.status}${res.status === 401 && authMode === 'query' ? ' (it won\'t accept the key in the web address)' : ''}`);
+      // Still 401 with a fresh key: Kroger won't take it this way, so stop trying direct.
+      if (res.status === 401) directOff = true;
+      throw new Error(`Kroger returned ${res.status}${res.status === 401 ? ' (it won\'t accept the search key)' : ''}`);
     }
     return ((await res.json()).data || []).map(normalizeProduct);
   }

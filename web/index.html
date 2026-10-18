@@ -88,6 +88,7 @@
         <h2 class="wide">This device</h2>
         <p class="wide hint">Stored only in this browser.</p>
         <label class="wide">Relay URL <input name="relayUrl" type="url" placeholder="https://dinnercart-relay.YOURNAME.workers.dev"></label>
+        <p class="wide hint" id="relay-url-hint" hidden>Already set for this site. Leave it blank unless you use a different relay.</p>
         <label class="wide">Relay password <input name="relayPassword" type="password" autocomplete="current-password"></label>
         <label class="wide">Gemini API key <input name="geminiKey" type="password" autocomplete="off" placeholder="from aistudio.google.com"></label>
         <fieldset class="wide">
@@ -103,6 +104,11 @@
           <button type="button" id="diagnose-btn">Check setup</button>
         </div>
         <ul id="diagnostics" class="wide diagnostics"></ul>
+        <div class="wide actions">
+          <button type="button" id="share-setup-btn"><span data-icon="share"></span> Share setup link</button>
+          <label class="inline-check"><input type="checkbox" id="share-gemini"> Include my Gemini key</label>
+        </div>
+        <p class="wide hint">Sets up another phone in your household with one tap. The link contains the relay password, so only send it to people in your household.</p>
       </form>
 
       <form id="prefs-form" class="card form">

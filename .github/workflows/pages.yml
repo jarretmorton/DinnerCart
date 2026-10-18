@@ -27,8 +27,11 @@ jobs:
         with:
           node-version: 22
       - uses: actions/configure-pages@v5
-      # Fresh URLs per deploy so browsers never mix cached old JS with new HTML.
+      # Fresh URLs per deploy so browsers never mix cached old JS with new HTML,
+      # and this repo's relay URL built in (the RELAY_URL repository variable).
       - run: node scripts/stamp-site.mjs web _site "${GITHUB_SHA::8}"
+        env:
+          RELAY_URL: ${{ vars.RELAY_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

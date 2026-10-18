@@ -1,6 +1,6 @@
 // DinnerCart UI controller. Plain DOM; views are re-rendered from `state`.
 import { LIGHT_MODEL, createGemini, createModelSwitch } from './gemini.js';
-import { directAuthMode, lastDirectProblem, lastSearchRoute, productSearcher, resetDirectSearch } from './kroger.js';
+import { lastDirectProblem, lastSearchRoute, productSearcher, resetDirectSearch } from './kroger.js';
 import { createRelay } from './relay.js';
 import { findRecipes, scaleFor } from './recipes.js';
 import { MAX_CANDIDATES, estimateTotal, heuristicPick, resolveIngredients, setPackages } from './resolver.js';
@@ -11,6 +11,8 @@ import { IDEAS, LEAVE_OUT_EXAMPLES, generateIdeas, rotatePlaceholder, todayKey }
 import { hydrateIcons, icon } from './icons.js';
 import { groupByRecency } from './library.js';
 import { VERSION } from './version.js';
+import { DEFAULT_RELAY_URL } from './config.js';
+import { makeSetupLink, readSetupLink } from './setup-link.js';
 
 const $ = (sel) => document.querySelector(sel);
 const VIEWS = ['find', 'cart', 'recipes', 'settings'];
@@ -25,8 +27,10 @@ let library = null;
 let busy = false;
 
 const persist = () => storage.saveState({ criteria: state.criteria, results: state.results, selected: state.selected, cart: state.cart });
-const configured = () => Boolean(settings.relayUrl && settings.relayPassword && settings.geminiKey);
-const relay = () => createRelay({ url: settings.relayUrl, password: settings.relayPassword });
+// The deploy builds in this repo's relay URL; Settings can override it.
+const relayUrl = () => settings.relayUrl || DEFAULT_RELAY_URL;
+const configured = () => Boolean(relayUrl() && settings.relayPassword && settings.geminiKey);
+const relay = () => createRelay({ url: relayUrl(), password: settings.relayPassword });
 // Starts on the strong model every page load; drops to the light one when
 // the strong model is rate limited, or when switched in Settings.
 const modelSwitch = createModelSwitch({
@@ -474,6 +478,8 @@ async function addByUrl() {
 function renderSettings() {
   const form = $('#settings-form');
   for (const k of ['relayUrl', 'relayPassword', 'geminiKey']) form.elements[k].value = settings[k] || '';
+  if (DEFAULT_RELAY_URL) form.elements.relayUrl.placeholder = DEFAULT_RELAY_URL;
+  $('#relay-url-hint').hidden = !DEFAULT_RELAY_URL;
   const pf = $('#prefs-form');
   pf.elements.pantry.value = (prefs.pantry || []).join('\n');
   pf.elements.leaveOut.value = (prefs.leaveOut || []).join('\n');
@@ -545,7 +551,7 @@ async function diagnose() {
   try {
     resetDirectSearch();
     const milk = (await productSearcher(relay(), prefs.store?.locationId)(['milk'])).milk;
-    const route = { direct: `directly from this device${directAuthMode() === 'query' ? ' (key in web address)' : ''}`, relay: 'through the relay', mixed: 'partly through the relay' }[lastSearchRoute()] || '';
+    const route = { direct: 'directly from this device', relay: 'through the relay', mixed: 'partly through the relay' }[lastSearchRoute()] || '';
     rows.push(Array.isArray(milk) && milk.length
       ? line(true, `Fred Meyer product search works ${route} (${milk.length} results for "milk").`)
       : line(false, `Fred Meyer product search failed ${route}: ${milk?.error || 'no results'}`));
@@ -676,7 +682,7 @@ $('#settings-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const f = e.target.elements;
   settings = {
-    relayUrl: f.relayUrl.value.trim().replace(/\/+$/, ''),
+    relayUrl: ((u) => (u === DEFAULT_RELAY_URL ? '' : u))(f.relayUrl.value.trim().replace(/\/+$/, '')),
     relayPassword: f.relayPassword.value,
     geminiKey: f.geminiKey.value.trim(),
   };
@@ -686,6 +692,25 @@ $('#settings-form').addEventListener('submit', async (e) => {
   await loadRemotePrefs();
   renderSettings();
 });
+
+$('#share-setup-btn').addEventListener('click', () => guarded(null, async () => {
+  if (!relayUrl() || !settings.relayPassword) throw new Error('Save the relay URL and password on this device first.');
+  const link = makeSetupLink(`${location.origin}${location.pathname}`, {
+    relayUrl: settings.relayUrl,
+    relayPassword: settings.relayPassword,
+    geminiKey: $('#share-gemini').checked ? settings.geminiKey : '',
+  });
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'DinnerCart setup', url: link });
+    } catch (err) {
+      if (err.name !== 'AbortError') throw err;
+    }
+    return;
+  }
+  await navigator.clipboard.writeText(link);
+  toast('Setup link copied. Open it on the other phone.');
+}));
 
 $('#prefs-form').addEventListener('submit', (e) => {
   e.preventDefault();
@@ -707,6 +732,20 @@ $('#prefs-form').addEventListener('submit', (e) => {
 });
 
 // ---------------------------------------------------------------- start
+
+// Opened from a "Share setup link" link: save its settings on this device.
+function applySetupLink() {
+  const fromLink = readSetupLink(location.hash);
+  if (!fromLink) return;
+  const differs = settings.relayPassword && (settings.relayPassword !== fromLink.relayPassword || (settings.relayUrl || '') !== (fromLink.relayUrl || ''));
+  if (!differs || confirm('Replace the DinnerCart settings on this device with the ones from this link?')) {
+    settings = { ...settings, ...fromLink, relayUrl: fromLink.relayUrl || '' };
+    storage.saveSettings(settings);
+  }
+  const done = Boolean(settings.geminiKey);
+  history.replaceState(null, '', `${location.pathname}${location.search}${done ? '#find' : '#settings'}`);
+  toast(done ? 'This device is set up.' : 'Almost done: add your Gemini key and press Save.');
+}
 
 function handleOAuthReturn() {
   const params = new URLSearchParams(location.search);
@@ -776,6 +815,7 @@ document.querySelectorAll('[data-suggest]').forEach((label) => label.addEventLis
     : (prefs.leaveOut?.length ? prefs.leaveOut.join(', ') : leaveOutIdeas.current());
   form.elements[field].focus();
 }));
+applySetupLink();
 handleOAuthReturn();
 window.addEventListener('hashchange', route);
 route();

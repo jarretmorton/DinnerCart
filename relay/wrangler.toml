@@ -3,10 +3,12 @@ main = "src/index.js"
 compatibility_date = "2026-10-01"
 
 # Not secret. Origins allowed to call the relay from a browser, and where
-# the Fred Meyer login sends you back to.
+# the Fred Meyer login sends you back to. These are the local-dev values;
+# the Deploy relay workflow replaces them with this repo's GitHub Pages
+# address (or the APP_URL repository variable).
 [vars]
-ALLOWED_ORIGINS = "https://jarretmorton.github.io,http://localhost:8080"
-APP_URL = "https://jarretmorton.github.io/DinnerCart/"
+ALLOWED_ORIGINS = "http://localhost:8080"
+APP_URL = "http://localhost:8080/"
 KROGER_API_BASE = "https://api.kroger.com/v1"
 
 # Create once with:  npx wrangler kv namespace create DC_KV
