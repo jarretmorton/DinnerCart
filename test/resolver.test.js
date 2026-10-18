@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { estimateTotal, heuristicPick, resolveIngredients, setPackages } from '../web/js/resolver.js';
-import { filterRecipes, scaleFor, dietViolations } from '../web/js/recipes.js';
+import { filterRecipes, scaleFor } from '../web/js/recipes.js';
 
 // Fake Gemini: answers the normalize prompt from a table keyed by line text,
 // and the pick prompt with a provided function.
@@ -147,11 +147,6 @@ test('recipe filters and scaling', () => {
   const { kept, rejected } = filterRecipes(recipes, { maxMinutes: 60, minRating: 4, exclude: [] });
   assert.deepEqual(kept.map((r) => r.name), ['A', 'Unknown time', 'Has rice']);
   assert.deepEqual(rejected.map((r) => r.reason), ['duplicate', 'takes 240 min', 'rated 3.1']);
-
-  const veg = filterRecipes(recipes.slice(0, 1), { diets: ['vegetarian'] });
-  assert.equal(veg.kept.length, 0);
-  assert.match(veg.rejected[0].reason, /vegetarian/);
-  assert.deepEqual(dietViolations({ ingredients: ['1 cup almond milk', '2 tbsp vegan butter', 'butternut squash'] }, ['vegan', 'dairy-free']), []);
 
   assert.equal(scaleFor({ servings: 6 }, 4), 0.67);
   assert.equal(scaleFor({ servings: null }, 4), 1);

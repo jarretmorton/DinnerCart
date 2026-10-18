@@ -156,22 +156,19 @@ function readCriteria(form) {
   const list = (s) => String(s || '').split(',').map((x) => x.trim()).filter(Boolean);
   return {
     wants: String(f.get('wants') || '').trim(),
-    cuisine: String(f.get('cuisine') || '').trim(),
     maxMinutes: Number(f.get('maxMinutes')) || null,
     servings: Number(f.get('servings')) || null,
     minRating: Number(f.get('minRating')) || null,
-    diets: f.getAll('diets').map(String),
     exclude: list(f.get('exclude')),
   };
 }
 
 function fillCriteria(form, c) {
   if (!c) return;
-  for (const name of ['wants', 'cuisine', 'servings']) if (c[name] != null) form.elements[name].value = c[name];
+  for (const name of ['wants', 'servings']) if (c[name] != null) form.elements[name].value = c[name];
   form.elements.maxMinutes.value = c.maxMinutes || '';
   form.elements.minRating.value = c.minRating || '';
   form.elements.exclude.value = (c.exclude || []).join(', ');
-  form.querySelectorAll('[name=diets]').forEach((cb) => { cb.checked = (c.diets || []).includes(cb.value); });
 }
 
 async function runSearch(event) {
@@ -183,8 +180,8 @@ async function runSearch(event) {
     return;
   }
   const criteria = readCriteria(event.target);
-  if (!criteria.wants && !criteria.cuisine) {
-    setStatus(status, 'Tell me what sounds good (or pick a cuisine).', 'error');
+  if (!criteria.wants) {
+    setStatus(status, 'Tell me what sounds good.', 'error');
     return;
   }
   await guarded(status, async () => {

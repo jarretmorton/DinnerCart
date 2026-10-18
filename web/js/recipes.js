@@ -6,8 +6,6 @@ import { mapLimit } from './util.js';
 export function describeCriteria(c) {
   const parts = [];
   if (c.wants) parts.push(`Looking for: ${c.wants}`);
-  if (c.cuisine) parts.push(`Cuisine: ${c.cuisine}`);
-  if (c.diets?.length) parts.push(`Diet: ${c.diets.join(', ')}`);
   if (c.maxMinutes) parts.push(`Ready in at most ${c.maxMinutes} minutes total`);
   if (c.servings) parts.push(`Feeds ${c.servings}`);
   if (c.exclude?.length) parts.push(`Must not contain: ${c.exclude.join(', ')}`);
@@ -44,26 +42,6 @@ export async function fetchRecipes(relay, urls, { concurrency = 6, onEach = () =
   };
 }
 
-const DIET_CONFLICTS = {
-  vegetarian: /\b(chicken|beef|pork|bacon|ham|sausage|turkey|lamb|veal|prosciutto|pancetta|chorizo|salami|pepperoni|anchov|fish|salmon|tuna|cod|tilapia|shrimp|prawn|crab|lobster|scallop|clam|mussel|gelatin)\b/i,
-  vegan: /\b(chicken|beef|pork|bacon|ham|sausage|turkey|lamb|fish|salmon|tuna|shrimp|crab|egg|eggs|milk|butter|cream|cheese|yogurt|honey|parmesan|mozzarella|cheddar|ghee|gelatin|mayonnaise)\b/i,
-  'gluten-free': /\b(flour|bread|breadcrumbs|panko|pasta|spaghetti|noodles|tortillas?|soy sauce|barley|couscous|crackers|wheat)\b/i,
-  'dairy-free': /\b(milk|butter|cream|cheese|yogurt|parmesan|mozzarella|cheddar|ghee|sour cream|ricotta)\b/i,
-};
-// Words that make a match harmless ("almond milk", "gluten-free flour", "vegan butter").
-const DIET_OK = /\b(almond|oat|soy|coconut|cashew|rice|vegan|plant[- ]based|dairy[- ]free|gluten[- ]free|tamari|corn tortillas?|egg[- ]free|non[- ]dairy|peanut butter|cocoa butter|veggie|vegetable broth)\b/i;
-
-export function dietViolations(recipe, diets = []) {
-  const hits = [];
-  for (const diet of diets) {
-    const re = DIET_CONFLICTS[diet];
-    if (!re) continue;
-    const bad = recipe.ingredients.find((line) => re.test(line) && !DIET_OK.test(line));
-    if (bad) hits.push(`${diet}: "${bad}"`);
-  }
-  return hits;
-}
-
 // Hard filters on the parsed fields. Unknown values pass (they're flagged in
 // the UI) so sites with partial markup aren't thrown away.
 export function filterRecipes(recipes, c) {
@@ -80,10 +58,6 @@ export function filterRecipes(recipes, c) {
       const hit = c.exclude.find((x) => r.ingredients.some((line) => line.toLowerCase().includes(x.toLowerCase())));
       if (hit) reason = `contains ${hit}`;
     }
-    if (!reason) {
-      const v = dietViolations(r, c.diets);
-      if (v.length) reason = v[0];
-    }
     seen.add(key);
     (reason ? rejected : kept).push(reason ? { recipe: r, reason } : r);
   }
@@ -98,7 +72,7 @@ export async function rankRecipes(gemini, recipes, criteria) {
     `ingredients: ${r.ingredients.slice(0, 25).join('; ')}`,
   ].join('\n')).join('\n\n');
   const out = await gemini.json(
-    `A couple is choosing what to cook. Their request:\n${describeCriteria(criteria)}\n\nCandidate recipes:\n${list}\n\nScore each recipe 0-100 for how well it fits the request (fit matters most, then ratings with many reviews, then a reasonable ingredient list). Recipes that clearly break a stated diet or exclusion score below 10. Give a one-sentence reason a person would find useful (what makes it a good or poor fit).`,
+    `A couple is choosing what to cook. Their request:\n${describeCriteria(criteria)}\n\nCandidate recipes:\n${list}\n\nScore each recipe 0-100 for how well it fits the request (fit matters most, then ratings with many reviews, then a reasonable ingredient list). Recipes that clearly contain an excluded ingredient score below 10. Give a one-sentence reason a person would find useful (what makes it a good or poor fit).`,
     S.obj({ ranking: S.arr(S.obj({ index: S.int(), score: S.int(), reason: S.str() })) }),
   );
   const scored = recipes.map((r) => ({ recipe: r, score: 0, reason: '' }));

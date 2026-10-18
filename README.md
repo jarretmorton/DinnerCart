@@ -11,7 +11,7 @@ happens in the Fred Meyer app.
  criteria ─► Gemini: 3 search queries
           ─────────────────────────────────────► /search  ─► Brave Search
           ─────────────────────────────────────► /recipe  ─► recipe page → JSON-LD
- filter (time, rating, diet, exclusions)                     (cached in KV)
+ filter (time, rating, exclusions)                           (cached in KV)
           ─► Gemini: rank, user picks
  ingredients ─► Gemini: normalize lines
           ─────────────────────────────────────► /kroger/products ─► Kroger API
@@ -109,7 +109,7 @@ app's Settings page and stored only in that browser's localStorage.
 
 ## Using it
 
-1. **Find**: describe what you want, then set time, servings, rating, diet and exclusions.
+1. **Find**: describe what you want, then set time, servings, rating and exclusions.
 2. Pick recipes, and save good ones to the shared **Library**. You can also add any recipe by pasting its link.
 3. **Cart**: adjust servings per recipe (quantities scale), then press **Match ingredients**.
 4. Review each line: swap to another candidate, search again, change the count, or remove it. Pantry staples, optional garnishes and water are listed under *Not adding*; tap ＋ to add one anyway.
