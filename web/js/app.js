@@ -11,6 +11,9 @@ import { VERSION } from './version.js';
 
 const $ = (sel) => document.querySelector(sel);
 const VIEWS = ['find', 'cart', 'recipes', 'settings'];
+// Opens the Fred Meyer app on phones that have it installed.
+const FM_CART_URL = 'https://www.fredmeyer.com/cart';
+const fmCartLink = (text = 'Open Fred Meyer cart ↗') => `<a href="${FM_CART_URL}" target="_blank" rel="noopener">${text}</a>`;
 
 let settings = storage.loadSettings();
 let prefs = storage.loadPrefs();
@@ -245,7 +248,7 @@ function renderCart() {
   const cart = state.cart;
   const storeName = prefs.store?.name;
   if (!state.selected.length && !cart) {
-    picked.innerHTML = `<div class="card"><h2>Nothing picked yet</h2><p class="muted">Pick recipes on <a href="#find">Find</a> or from your saved <a href="#recipes">Recipes</a>.</p></div>`;
+    picked.innerHTML = `<div class="card"><h2>Nothing picked yet</h2><p class="muted">Pick recipes on <a href="#find">Find</a> or from your saved <a href="#recipes">Recipes</a>.</p><p>${fmCartLink()}</p></div>`;
     $('#cart').innerHTML = '';
     return;
   }
@@ -289,7 +292,7 @@ function renderShoppingList() {
     ${removed.length ? `<div class="card"><h3>Removed</h3><div class="chips">${removed.map((i) => `<span class="chip">${h(i.name)}<button class="small link" data-action="restore-item" data-key="${h(i.key)}">undo</button></span>`).join('')}</div></div>` : ''}
     <div class="card sendbar">
       <div><strong>${plural(sendable.length, 'product')}</strong> · est. ${money(estimateTotal(sendable))}
-        <div class="muted small-text">${prefs.modality === 'DELIVERY' ? 'Delivery' : 'Pickup'} cart${cart.sentAt ? ` · sent ${new Date(cart.sentAt).toLocaleString()} — check the Fred Meyer app` : ''}</div></div>
+        <div class="muted small-text">${prefs.modality === 'DELIVERY' ? 'Delivery' : 'Pickup'} cart${cart.sentAt ? ` · sent ${new Date(cart.sentAt).toLocaleString()}` : ''} · ${fmCartLink()}</div></div>
       <button class="primary" data-action="send-cart" ${sendable.length ? '' : 'disabled'}>${cart.sentAt ? 'Send again' : 'Add to Fred Meyer cart'}</button>
     </div>`;
 }
@@ -374,7 +377,8 @@ async function sendCart() {
       const r = await relay().cartAdd(items, prefs.modality);
       cart.sentAt = Date.now();
       persist();
-      setStatus(status, `Added ${r.added} products. Open the Fred Meyer app to review and check out.`, 'ok');
+      setStatus(status, `Added ${r.added} products. Review and check out in Fred Meyer: `, 'ok');
+      status.insertAdjacentHTML('beforeend', fmCartLink());
       renderCart();
     } catch (err) {
       if (err.code === 'kroger_auth_required') {
