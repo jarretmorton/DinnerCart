@@ -640,7 +640,6 @@ function handleOAuthReturn() {
 
 $('#app-version').textContent = `v${VERSION}`;
 renderModelToggle();
-$('#settings-version').textContent = `DinnerCart version ${VERSION}`;
 fillCriteria($('#criteria'), state.criteria);
 handleOAuthReturn();
 window.addEventListener('hashchange', route);

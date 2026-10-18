@@ -121,7 +121,7 @@ and the app asks you to confirm first.
 
 ## Development
 
-The app version lives in `web/js/version.js` and shows in the header and on the Settings page. Bump it with every change so you can tell whether a browser has the latest build (GitHub Pages can cache for up to 10 minutes).
+The app version lives in `web/js/version.js` and shows in the header. Bump it with every change so you can tell whether a browser has the latest build (GitHub Pages can cache for up to 10 minutes).
 
 ```sh
 npm test                      # unit tests: relay + resolver + units + eval scoring

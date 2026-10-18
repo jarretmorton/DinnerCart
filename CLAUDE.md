@@ -3,7 +3,7 @@
 ## Always bump the version
 
 Every change that ships, to `web/` or `relay/`, must bump `VERSION` in
-`web/js/version.js`. It's shown in the app header and on Settings, so the
+`web/js/version.js`. It's shown in the app header, so the
 owners can tell which build they have. Use semver: patch for fixes, minor
 for features or behavior changes. Mention the new version when reporting
 the change.
