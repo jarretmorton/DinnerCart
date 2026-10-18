@@ -8,6 +8,20 @@ owners can tell which build they have. Use semver: patch for fixes, minor
 for features or behavior changes. Mention the new version when reporting
 the change.
 
+## Design language: "Farmers Market"
+
+- Colors are CSS variables at the top of `web/styles.css`: warm paper, terracotta
+  (`--accent`) and sage (`--sage`). Night mode reuses the same shapes and type
+  with its own palette under `prefers-color-scheme: dark`. Use the variables,
+  never hard-coded colors, so both modes keep working.
+- Type: Fraunces (`--serif`) for the brand, headings, legends and tappable
+  labels; Inter (`--sans`) for everything else. Both are self-hosted in `web/fonts/`.
+- Shapes: pill buttons and tabs, 18px card radius, 12px fields, dashed
+  `--rule` lines as dividers.
+- Icons: line icons from `web/js/icons.js` (`icon('name')`, or
+  `data-icon="name"` in HTML). Don't use emoji in the UI; add a new icon in the
+  same style instead (24px grid, 1.75 stroke, round caps, currentColor).
+
 ## Before pushing
 
 - `npm test` must pass (no dependencies needed).

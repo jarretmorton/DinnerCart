@@ -7,6 +7,7 @@ import * as storage from './storage.js';
 import { summarizeNeeds } from './units.js';
 import { escapeHtml as h, money } from './util.js';
 import { IDEAS, LEAVE_OUT_EXAMPLES, generateIdeas, rotatePlaceholder, todayKey } from './suggestions.js';
+import { hydrateIcons, icon } from './icons.js';
 import { VERSION } from './version.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -115,14 +116,14 @@ function recipeCard(recipe, { reason, libraryId } = {}) {
   const saved = savedEntry(recipe.url);
   const meta = [
     recipe.site && `<span>${h(recipe.site)}</span>`,
-    `<span>⏱ ${recipe.totalMinutes ? `${recipe.totalMinutes} min` : 'time ?'}</span>`,
-    `<span>🍽 ${recipe.servings ? `serves ${h(recipe.servings)}` : 'servings ?'}</span>`,
-    recipe.rating && `<span>★ ${h(recipe.rating.value)}${recipe.rating.count ? ` (${h(recipe.rating.count)})` : ''}</span>`,
-    recipe.nutrition?.caloriesNumber && `<span>${h(recipe.nutrition.caloriesNumber)} cal</span>`,
+    `<span>${icon('clock')} ${recipe.totalMinutes ? `${recipe.totalMinutes} min` : 'time ?'}</span>`,
+    `<span>${icon('people')} ${recipe.servings ? `serves ${h(recipe.servings)}` : 'servings ?'}</span>`,
+    recipe.rating && `<span>${icon('star', { filled: true })} ${h(recipe.rating.value)}${recipe.rating.count ? ` (${h(recipe.rating.count)})` : ''}</span>`,
+    recipe.nutrition?.caloriesNumber && `<span>${icon('flame')} ${h(recipe.nutrition.caloriesNumber)} cal</span>`,
   ].filter(Boolean).join('');
   return `
     <article class="card recipe ${picked ? 'selected' : ''}">
-      ${recipe.image ? `<img src="${h(recipe.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'noimg',textContent:'🍲'}))">` : '<div class="noimg">🍲</div>'}
+      ${recipe.image ? `<img src="${h(recipe.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="dcImageFallback(this)">` : `<div class="noimg">${icon('bowl')}</div>`}
       <div class="body">
         <h3><a href="${h(recipe.url)}" target="_blank" rel="noopener">${h(recipe.name)}</a></h3>
         <div class="meta">${meta}</div>
@@ -131,10 +132,10 @@ function recipeCard(recipe, { reason, libraryId } = {}) {
           <ul>${recipe.ingredients.map((i) => `<li>${h(i)}</li>`).join('')}</ul>
         </details>
         <div class="buttons">
-          <button class="${picked ? '' : 'primary'}" data-action="toggle-pick" data-url="${h(recipe.url)}">${picked ? '✓ Picked' : 'Pick'}</button>
+          <button class="${picked ? '' : 'primary'}" data-action="toggle-pick" data-url="${h(recipe.url)}">${picked ? `${icon('check')} Picked` : 'Pick'}</button>
           ${libraryId
             ? `<button data-action="lib-delete" data-id="${h(libraryId)}">Remove</button>`
-            : `<button data-action="save" data-url="${h(recipe.url)}" ${saved ? 'disabled' : ''}>${saved ? '★ Saved' : '☆ Save'}</button>`}
+            : `<button data-action="save" data-url="${h(recipe.url)}" ${saved ? 'disabled' : ''}>${saved ? `${icon('bookmark', { filled: true })} Saved` : `${icon('bookmark')} Save`}</button>`}
         </div>
       </div>
     </article>`;
@@ -261,7 +262,7 @@ function renderCart() {
           <div class="name"><a href="${h(s.recipe.url)}" target="_blank" rel="noopener">${h(s.recipe.name)}</a>
             <div class="muted small-text">${h(s.recipe.site || '')}${s.recipe.servings ? ` · recipe makes ${h(s.recipe.servings)}` : ' · servings unknown, not scaled'}</div></div>
           <label class="small-text">serves <input type="number" min="1" max="40" value="${h(s.servings)}" data-action="servings" data-url="${h(s.recipe.url)}"></label>
-          <button class="small" data-action="toggle-pick" data-url="${h(s.recipe.url)}" aria-label="Remove">✕</button>
+          <button class="small" data-action="toggle-pick" data-url="${h(s.recipe.url)}" aria-label="Remove">${icon('x')}</button>
         </div>`).join('')}
       <div class="actions" style="margin-top:12px">
         <button class="primary" data-action="build-cart" ${state.selected.length ? '' : 'disabled'}>${cart ? 'Rebuild' : 'Match'} ingredients${storeName ? ` at ${h(storeName)}` : ''}</button>
@@ -289,7 +290,7 @@ function renderShoppingList() {
       ${active.map(itemRow).join('') || '<p class="muted">Everything is covered by the pantry.</p>'}
     </div>
     ${cart.skipped.length ? `<div class="card"><h3>Not adding</h3><p class="muted small-text">Pantry staples, optional garnishes and water. Tap + to add one anyway.</p>
-      <div class="chips">${cart.skipped.map((s, i) => `<span class="chip" title="${h(s.text)}">${h(s.name)} <span class="reason">${h(s.reason)}</span><button class="small link" data-action="add-skipped" data-idx="${i}" aria-label="Add">＋</button></span>`).join('')}</div></div>` : ''}
+      <div class="chips">${cart.skipped.map((s, i) => `<span class="chip" title="${h(s.text)}">${h(s.name)} <span class="reason">${h(s.reason)}</span><button class="small link" data-action="add-skipped" data-idx="${i}" aria-label="Add">${icon('plus')}</button></span>`).join('')}</div></div>` : ''}
     ${removed.length ? `<div class="card"><h3>Removed</h3><div class="chips">${removed.map((i) => `<span class="chip">${h(i.name)}<button class="small link" data-action="restore-item" data-key="${h(i.key)}">undo</button></span>`).join('')}</div></div>` : ''}
     <div class="card sendbar">
       <div><strong>${plural(sendable.length, 'product')}</strong> · est. ${money(estimateTotal(sendable))}
@@ -304,7 +305,7 @@ function itemRow(item) {
   const lines = item.needs.map((n) => `<li>${h(n.text)} <span class="muted">(${h(n.recipe)})</span></li>`).join('');
   return `
     <div class="item ${p ? '' : 'nomatch'}" data-key="${h(item.key)}">
-      ${p?.image ? `<img src="${h(p.image)}" alt="" loading="lazy">` : `<div class="noimg">${p ? '🛒' : '?'}</div>`}
+      ${p?.image ? `<img src="${h(p.image)}" alt="" loading="lazy">` : `<div class="noimg">${icon(p ? 'basket' : 'question')}</div>`}
       <div>
         <div class="need"><strong>${h(item.name)}</strong> · ${h(summarizeNeeds(item.needs))}${item.recipes.length > 1 ? ` · ${item.recipes.length} recipes` : ''}</div>
         ${item.candidates.length
@@ -684,6 +685,14 @@ function handleOAuthReturn() {
 }
 
 $('#app-version').textContent = `v${VERSION}`;
+hydrateIcons();
+// Recipe photos that fail to load get the bowl placeholder.
+window.dcImageFallback = (img) => {
+  const div = document.createElement('div');
+  div.className = 'noimg';
+  div.innerHTML = icon('bowl');
+  img.replaceWith(div);
+};
 renderModelToggle();
 fillCriteria($('#criteria'), state.criteria);
 applySearchDefaults();
