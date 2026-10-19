@@ -166,6 +166,41 @@
   <div id="timers" class="timers" aria-live="polite" hidden></div>
   <div id="toast" class="toast" role="status" hidden></div>
 
+  <script>
+    // If the app doesn't start (most often a phone loading the page while a
+    // new version is half deployed), reload once with a fresh address; if it
+    // still doesn't start, say so instead of leaving a blank page.
+    (function () {
+      var errors = [];
+      function failed() {
+        if (window.dcStarted || document.getElementById('boot-error')) return;
+        var retried = 0;
+        try { retried = Number(sessionStorage.getItem('dcBootRetry')) || 0; } catch (e) { /* private mode */ }
+        if (Date.now() - retried > 60000) {
+          try { sessionStorage.setItem('dcBootRetry', String(Date.now())); } catch (e) { /* private mode */ }
+          location.replace(location.pathname + '?r=' + Date.now() + location.hash);
+          return;
+        }
+        var main = document.querySelector('main');
+        main.innerHTML = '<div class="card" id="boot-error"><h2>DinnerCart didn\'t load</h2>'
+          + '<p class="muted">Usually this clears up in a minute, right after an update. Try again; if it keeps happening, send this to whoever set up the app:</p>'
+          + '<p class="notice"></p><button class="primary" type="button">Reload</button></div>';
+        main.querySelector('.notice').textContent = errors.join(' · ') || 'The app took too long to start.';
+        main.querySelector('button').onclick = function () { location.replace(location.pathname + '?r=' + Date.now() + location.hash); };
+      }
+      window.addEventListener('error', function (e) {
+        if (window.dcStarted) return;
+        errors.push(e.message || (e.target && e.target.src ? 'Could not load ' + e.target.src.split('/').pop() : 'error'));
+        setTimeout(failed, 300);
+      }, true);
+      window.addEventListener('unhandledrejection', function (e) {
+        if (window.dcStarted) return;
+        errors.push(String((e.reason && e.reason.message) || e.reason));
+        setTimeout(failed, 300);
+      });
+      window.addEventListener('load', function () { setTimeout(failed, 8000); });
+    })();
+  </script>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

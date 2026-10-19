@@ -140,8 +140,8 @@ function recipeCard(recipe, { reason, libraryId } = {}) {
         <h3><a href="${h(recipe.url)}" target="_blank" rel="noopener">${h(recipe.name)}</a></h3>
         <div class="meta">${meta}</div>
         ${reason ? `<div class="why">${h(reason)}</div>` : ''}
-        <details><summary>${plural(recipe.ingredients.length, 'ingredient')}</summary>
-          <ul>${recipe.ingredients.map((i) => `<li>${h(i)}</li>`).join('')}</ul>
+        <details><summary>${plural((recipe.ingredients || []).length, 'ingredient')}</summary>
+          <ul>${(recipe.ingredients || []).map((i) => `<li>${h(i)}</li>`).join('')}</ul>
         </details>
         <div class="buttons">
           <button class="${picked ? '' : 'primary'}" data-action="toggle-pick" data-url="${h(recipe.url)}">${picked ? `${icon('check')} Picked` : `${icon('cart')} Pick`}</button>
@@ -370,7 +370,7 @@ async function buildCart() {
   if (!configured()) { location.hash = 'settings'; return toast('Finish Config first.', 'error'); }
   if (!prefs.store?.locationId) { location.hash = 'settings'; return toast('Choose your Fred Meyer store first.', 'error'); }
   await guarded(status, async () => {
-    const recipes = state.selected.map((s) => ({ name: s.recipe.name, ingredients: s.recipe.ingredients, scale: scaleFor(s.recipe, s.servings) }));
+    const recipes = state.selected.map((s) => ({ name: s.recipe.name, ingredients: s.recipe.ingredients || [], scale: scaleFor(s.recipe, s.servings) }));
     const result = await resolveIngredients({
       recipes,
       pantry: prefs.pantry || [],
@@ -516,6 +516,7 @@ function openCook(url) {
   const pick = state.selected.find((s) => s.recipe.url === url);
   const recipe = { ...pick?.recipe, ...fromResults, ...savedEntry(url) };
   if (!recipe.url) return;
+  recipe.ingredients ||= [];
   const view = location.hash.slice(1);
   const servings = pick?.servings || (view === 'find' && state.criteria?.servings) || prefs.servings || recipe.servings;
   cookView.open({ recipe, servings, load: ({ fresh }) => loadCook(recipe, { fresh }) });
@@ -895,6 +896,9 @@ applySetupLink();
 handleOAuthReturn();
 window.addEventListener('hashchange', route);
 route();
+window.dcStarted = true; // the boot check in index.html stands down
+// Drop the ?r= the boot check adds when it reloads.
+if (new URLSearchParams(location.search).has('r')) history.replaceState(history.state, '', `${location.pathname}${location.hash}`);
 if (configured()) {
   const prefsLoaded = loadRemotePrefs().then(() => { applySearchDefaults(); if (location.hash === '#settings') renderSettings(); if (location.hash === '#cart') renderCart(); });
   const libraryLoaded = relay().library().then((r) => { library = r.recipes; if (location.hash !== '#cart' && location.hash !== '#settings') route(); });

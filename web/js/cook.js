@@ -99,7 +99,7 @@ function namesOf(line) {
 // only that ingredient has appears ("broccoli" for broccoli florets, "sesame"
 // for sesame oil next to olive oil); if all its words are shared with other
 // ingredients, all of them must appear.
-export function missingIngredients(ingredients, cook) {
+export function missingIngredients(ingredients = [], cook) {
   const said = new Set(wordsOf([...cook.prep, ...cook.steps.map((s) => s.text)].join(' ')));
   const lines = ingredients.filter((line) => !/:\s*$/.test(line)).map((line) => ({ line, parts: namesOf(line) }));
   const usedBy = new Map(); // word -> how many ingredient lines have it
