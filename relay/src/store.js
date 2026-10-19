@@ -141,6 +141,7 @@ const PREF_FIELDS = {
   minRating: (v) => typeof v === 'number' && v >= 0 && v <= 5,
   maxMinutes: (v) => v === null || (Number.isInteger(v) && v > 0 && v <= 600),
   servings: (v) => Number.isInteger(v) && v >= 1 && v <= 40,
+  easy: (v) => typeof v === 'boolean',
   // Today's Gemini-written "What sounds good?" ideas, shared by both devices.
   dailyIdeas: (v) => typeof v === 'object' && v !== null && /^\d{4}-\d{2}-\d{2}$/.test(v.date)
     && Array.isArray(v.ideas) && v.ideas.length <= 50 && v.ideas.every((s) => typeof s === 'string' && s.length <= 80),

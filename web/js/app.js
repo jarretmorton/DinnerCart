@@ -176,11 +176,12 @@ function readCriteria(form) {
     wants: String(f.get('wants') || '').trim(),
     maxMinutes: Number(f.get('maxMinutes')) || null,
     servings: Number(f.get('servings')) || null,
+    easy: f.get('easy') === 'on',
     exclude: list(f.get('exclude')),
   };
 }
 
-// Max time and servings start from the household defaults on every load,
+// Max time, servings and Easy start from the household defaults on every load,
 // unless the user has already edited the form this visit.
 let findFormTouched = false;
 function applySearchDefaults() {
@@ -190,6 +191,7 @@ function applySearchDefaults() {
   time.value = prefs.maxMinutes ? String(prefs.maxMinutes) : '';
   if (time.selectedIndex < 0) time.value = String(storage.DEFAULT_MAX_MINUTES);
   form.elements.servings.value = prefs.servings || storage.DEFAULT_SERVINGS;
+  form.elements.easy.checked = Boolean(prefs.easy);
 }
 
 // "What sounds good?" starts empty on every load; only the leave-out list
@@ -208,7 +210,7 @@ async function runSearch(event) {
     return;
   }
   const recommend = event.submitter?.id === 'recommend-btn';
-  const criteria = { ...readCriteria(event.target), minRating: prefs.minRating ?? storage.DEFAULT_MIN_RATING };
+  const criteria = { ...readCriteria(event.target), minRating: prefs.minRating ?? storage.DEFAULT_MIN_RATING, pantry: prefs.pantry || [] };
   if (!recommend && !criteria.wants) {
     setStatus(status, 'Tell me what sounds good, or try Recommend.', 'error');
     return;
@@ -547,6 +549,7 @@ function renderSettings() {
   pf.elements.minRating.value = String(prefs.minRating ?? storage.DEFAULT_MIN_RATING);
   pf.elements.maxMinutes.value = prefs.maxMinutes ? String(prefs.maxMinutes) : '';
   pf.elements.servings.value = prefs.servings || storage.DEFAULT_SERVINGS;
+  pf.elements.easy.checked = Boolean(prefs.easy);
   $('#store-current').innerHTML = prefs.store
     ? `Store: <strong>${h(prefs.store.name)}</strong> <span class="muted small-text">${h(prefs.store.address || '')} · #${h(prefs.store.locationId)}</span>`
     : '<span class="notice">No store chosen yet.</span>';
@@ -786,6 +789,7 @@ $('#prefs-form').addEventListener('submit', (e) => {
       minRating: Number(f.minRating.value),
       maxMinutes: Number(f.maxMinutes.value) || null,
       servings: Math.min(20, Math.max(1, Math.round(Number(f.servings.value) || storage.DEFAULT_SERVINGS))),
+      easy: f.easy.checked,
     });
     applySearchDefaults();
     toast('Household settings saved');

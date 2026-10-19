@@ -42,12 +42,13 @@
         <fieldset class="wide time-servings">
           <legend>Prep time and for how many?</legend>
           <select name="maxMinutes" aria-label="Prep time">
-            <option value="">any time</option><option value="20">20 min</option><option value="30" selected>30 min</option>
-            <option value="45">45 min</option><option value="60">1 hour</option>
+            <option value="15">15 min</option><option value="20">20 min</option><option value="30" selected>30 min</option>
+            <option value="45">45 min</option><option value="60">1 hour</option><option value="">any time</option>
           </select>
           <span class="muted">for</span>
           <input name="servings" type="number" min="1" max="20" value="4" aria-label="How many people">
           <span class="muted">people</span>
+          <label class="pill-toggle" title="Few ingredients, few steps, nothing fussy"><input type="checkbox" name="easy"><span data-icon="bolt"></span> Easy</label>
         </fieldset>
         <label class="wide"><span class="suggest" data-suggest="exclude" title="Tap to fill in your household list">What to leave out?</span>
           <input name="exclude" autocomplete="off">
@@ -94,8 +95,8 @@
         <fieldset class="wide">
           <legend>Gemini model</legend>
           <div class="segmented" role="radiogroup">
-            <label><input type="radio" name="modelTier" value="strong"><span data-icon="bolt"></span> Strong</label>
-            <label><input type="radio" name="modelTier" value="light"><span data-icon="leaf"></span> Light</label>
+            <label><input type="radio" name="modelTier" value="strong"><span data-icon="anvil"></span> Strong</label>
+            <label><input type="radio" name="modelTier" value="light"><span data-icon="needles"></span> Light</label>
           </div>
         </fieldset>
         <p class="wide hint">Each visit starts on Strong. If Strong hits Gemini's rate limit, this switches to Light by itself until you reload. You can also switch it by hand. Takes effect immediately.</p>
@@ -134,10 +135,11 @@
         <h3 class="wide subhead">Search defaults</h3>
         <label>Default max time
           <select name="maxMinutes">
-            <option value="">any</option><option value="20">20 min</option><option value="30">30 min</option>
-            <option value="45">45 min</option><option value="60">1 hour</option>
+            <option value="15">15 min</option><option value="20">20 min</option><option value="30">30 min</option>
+            <option value="45">45 min</option><option value="60">1 hour</option><option value="">any</option>
           </select>
         </label>
+        <label class="inline-check"><input type="checkbox" name="easy"> Easy by default</label>
         <label>Default servings <input name="servings" type="number" min="1" max="20"></label>
         <label>Minimum recipe rating
           <select name="minRating">

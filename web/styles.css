@@ -100,8 +100,8 @@ fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap
 legend { font-size: 1rem; color: var(--text); margin-bottom: 4px; padding: 0; }
 fieldset label { flex-direction: row; align-items: center; color: var(--text); }
 fieldset input { width: auto; }
-.time-servings { flex-wrap: nowrap; align-items: center; gap: 8px; }
-.time-servings select { flex: 1; min-width: 0; width: auto; }
+.time-servings { flex-wrap: wrap; align-items: center; gap: 8px; }
+.time-servings select { flex: 0 1 auto; min-width: 0; width: auto; }
 .time-servings input { width: 4.5em; }
 .segmented { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--field); }
 .segmented label { display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; cursor: pointer; color: var(--text); }
@@ -116,6 +116,11 @@ fieldset input { width: auto; }
 .hint { margin: -6px 0 0; font-size: 0.85rem; color: var(--muted); }
 .inline-check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); cursor: pointer; }
 .inline-check input { width: auto; accent-color: var(--basil); }
+/* A checkbox that looks like a pill button (Easy). */
+.pill-toggle { flex-direction: row; align-items: center; gap: 6px; padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--text); cursor: pointer; font-size: 1rem; user-select: none; }
+.pill-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.pill-toggle:has(input:checked) { background: var(--basil); border-color: var(--basil); color: var(--basil-text); font-weight: 600; }
+.pill-toggle:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 button {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;

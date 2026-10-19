@@ -170,7 +170,7 @@ the relay password, so only send it within your household.
 
 ## Using it
 
-1. **Search**: describe what you want, then set time, servings and what to leave out. The boxes rotate suggestions ("What sounds good?" ideas are written fresh by Gemini once a day and shared by both of you through the relay, using the light model, the season and your saved recipes; a built-in list covers the gap); tap a box's label to use the idea shown (or, for "What to leave out?", your household list from Config). Recipes rated below the household minimum (Config, default 4★) are skipped; unrated ones are kept.
+1. **Search**: describe what you want, then set time (15 min to 1 hour, or any time), servings and what to leave out. Turn on **Easy** (lightning) for low-effort dinners: at most 10 ingredients not counting pantry staples, at most 8 steps, with searches and ranking steered toward simple, one-pan dishes; recipes over the limits are listed as skipped with the reason. Easy is separate from time, so an easy one-hour roast still counts. Config can turn Easy on by default. The boxes rotate suggestions ("What sounds good?" ideas are written fresh by Gemini once a day and shared by both of you through the relay, using the light model, the season and your saved recipes; a built-in list covers the gap); tap a box's label to use the idea shown (or, for "What to leave out?", your household list from Config). Recipes rated below the household minimum (Config, default 4★) are skipped; unrated ones are kept.
    Or press **Recommend** (no fields needed): Gemini looks at your saved recipes, plus anything you filled in, and finds new dishes in a similar vein, skipping ones you've already saved.
    **Search** finds recipes for what you typed. **Clear results** empties the results list.
 2. On any recipe, **Pick** it for this shop, **Save** it, or **Cook** it. The **Save** tab is one shared list of everything saved, by hand or automatically when sent to Fred Meyer, grouped into **This week** (weeks start Monday), **Last week**, **Last 30 days** and **Older** by when it was last saved or picked. **Pick** it again or **Remove** it from there. You can also add any recipe by pasting its link at the bottom.
@@ -246,7 +246,7 @@ All routes need `X-Relay-Password`, except the OAuth callback.
 | `POST /kroger/disconnect` | | forgets the stored tokens |
 | `GET/POST/DELETE /library` | `{recipe}` / `?id=` | shared recipe library (`savedAt`, `lastPickedAt`, `pickedCount` and Cook steps per recipe) |
 | `POST /library/picked` | `{recipes: [..≤20]}` | saves recipes just sent to the cart and records the pick; returns the library |
-| `GET/PUT /prefs` | `{prefs: {store, pantry, leaveOut, modality, minRating, maxMinutes, servings, dailyIdeas}}` | shared household settings |
+| `GET/PUT /prefs` | `{prefs: {store, pantry, leaveOut, modality, minRating, maxMinutes, servings, easy, dailyIdeas}}` | shared household settings |
 
 The library stores each recipe's URL, ingredients and metadata, plus the
 app's own rewritten Cook steps once someone has opened Cook. It never stores
@@ -258,7 +258,7 @@ the original page's instructions, and always links to the source page.
 - Kroger's API sits behind a bot firewall that sometimes blocks Cloudflare's shared servers ("403 Access Denied"). So the app searches products **directly from the phone**, using a search-only token from the relay in the web address (Kroger allows browser requests, but refuses the CORS preflight a header would need), and falls back to the relay per item if that fails. **Check setup** shows which path is working and, if direct search fails, why. Relay requests identify the app, run 2 product searches at a time, retry once after a firewall block and then stop for that request, and cache product results for 6 hours.
 - Pages that block bots or have no `schema.org/Recipe` markup are skipped. They're listed under "couldn't be read" with the reason.
 - Free Cloudflare Workers get 10 ms of CPU per request. That's why each recipe page is parsed in its own request.
-- The Gemini free tier is rate-limited. Each visit starts on the strong model (`gemini-flash-latest`). When it hits its limit, the app switches to the light model (`gemini-flash-lite-latest`) until you reload. The Strong/Light toggle in Config shows which model is active and can be switched by hand.
+- The Gemini free tier is rate-limited. Each visit starts on the strong model (`gemini-flash-latest`). When it hits its limit, the app switches to the light model (`gemini-flash-lite-latest`) until you reload. The Strong (anvil) / Light (sewing needles) toggle in Config shows which model is active and can be switched by hand.
 
 ## Build plan status
 

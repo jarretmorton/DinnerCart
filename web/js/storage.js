@@ -40,7 +40,7 @@ export const DEFAULT_MAX_MINUTES = 30;
 export const DEFAULT_SERVINGS = 4;
 export const loadPrefs = () => ({
   store: null, pantry: DEFAULT_PANTRY, modality: 'PICKUP',
-  minRating: DEFAULT_MIN_RATING, maxMinutes: DEFAULT_MAX_MINUTES, servings: DEFAULT_SERVINGS, leaveOut: [],
+  minRating: DEFAULT_MIN_RATING, maxMinutes: DEFAULT_MAX_MINUTES, servings: DEFAULT_SERVINGS, easy: false, leaveOut: [],
   ...read(PREFS_KEY, {}),
 });
 export const savePrefs = (p) => write(PREFS_KEY, p);

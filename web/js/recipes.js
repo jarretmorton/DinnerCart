@@ -7,6 +7,7 @@ export function describeCriteria(c) {
   const parts = [];
   if (c.wants) parts.push(`Looking for: ${c.wants}`);
   if (c.maxMinutes) parts.push(`Ready in at most ${c.maxMinutes} minutes total`);
+  if (c.easy) parts.push('Easy: few ingredients, few steps, little prep, nothing fussy (one pan or sheet pan is ideal)');
   if (c.servings) parts.push(`Feeds ${c.servings}`);
   if (c.exclude?.length) parts.push(`Must not contain: ${c.exclude.join(', ')}`);
   if (c.minRating) parts.push(`Rated at least ${c.minRating} stars`);
@@ -28,12 +29,13 @@ const QUERY_RULES = 'Each query should include the word "recipe", be 3-8 words, 
 export async function generateQueries(gemini, criteria, { liked } = {}) {
   const extra = describeCriteria(criteria);
   let prompt;
+  const rules = `${QUERY_RULES}${criteria.easy ? ' They want it easy: put a word like "easy", "simple", "one-pan" or "5-ingredient" in at least two of the queries.' : ''}`;
   if (!liked) {
-    prompt = `Write 3 different web search queries that will find free recipe pages matching:\n${extra}\n\n${QUERY_RULES} (e.g. a specific dish, a key ingredient, a style).`;
+    prompt = `Write 3 different web search queries that will find free recipe pages matching:\n${extra}\n\n${rules} (e.g. a specific dish, a key ingredient, a style).`;
   } else if (liked.length) {
-    prompt = `A couple wants dinner ideas they'll probably like. Recipes they've saved (their taste):\n${describeTaste(liked)}\n${extra ? `\nThey also said:\n${extra}\n` : ''}\nWrite 3 different web search queries for NEW dishes they'd likely enjoy: related in cuisine, flavors or main ingredients to what they've saved, but not the same dishes. Mix it up: one close to their favorites, one from a neighboring cuisine, one a fresh take on an ingredient they use often. ${QUERY_RULES}`;
+    prompt = `A couple wants dinner ideas they'll probably like. Recipes they've saved (their taste):\n${describeTaste(liked)}\n${extra ? `\nThey also said:\n${extra}\n` : ''}\nWrite 3 different web search queries for NEW dishes they'd likely enjoy: related in cuisine, flavors or main ingredients to what they've saved, but not the same dishes. Mix it up: one close to their favorites, one from a neighboring cuisine, one a fresh take on an ingredient they use often. ${rules}`;
   } else {
-    prompt = `A couple wants dinner ideas. They haven't saved any recipes yet, so suggest popular, well-loved weeknight dinners with variety.${extra ? `\nThey said:\n${extra}` : ''}\n\nWrite 3 different web search queries. ${QUERY_RULES}`;
+    prompt = `A couple wants dinner ideas. They haven't saved any recipes yet, so suggest popular, well-loved weeknight dinners with variety.${extra ? `\nThey said:\n${extra}` : ''}\n\nWrite 3 different web search queries. ${rules}`;
   }
   const out = await gemini.json(prompt, S.obj({ queries: S.arr(S.str()) }), { temperature: liked ? 0.9 : 0.7 });
   return (out.queries || []).map((q) => String(q).trim()).filter(Boolean).slice(0, 3);
@@ -59,6 +61,21 @@ export async function fetchRecipes(relay, urls, { concurrency = 6, onEach = () =
   };
 }
 
+// Easy: at most this many ingredients (not counting pantry staples) and steps.
+export const EASY_MAX_INGREDIENTS = 10;
+export const EASY_MAX_STEPS = 8;
+
+const stepCount = (r) => (Array.isArray(r.instructions) ? r.instructions.filter((s) => !/:\s*$/.test(s)).length : null);
+
+// Ingredients that aren't pantry staples ("salt", "olive oil", ...).
+export function shoppingIngredients(r, pantry = []) {
+  const staples = pantry.map((p) => p.toLowerCase()).filter(Boolean);
+  return r.ingredients.filter((line) => {
+    const l = line.toLowerCase();
+    return !/:\s*$/.test(l) && !staples.some((p) => new RegExp(`\\b${p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(l));
+  });
+}
+
 // Hard filters on the parsed fields. Unknown values pass (they're flagged in
 // the UI) so sites with partial markup aren't thrown away.
 export function filterRecipes(recipes, c) {
@@ -69,8 +86,10 @@ export function filterRecipes(recipes, c) {
     const key = `${r.name.toLowerCase()}|${r.site}`;
     let reason = null;
     if (seen.has(key)) reason = 'duplicate';
-    else if (c.skipUrls?.has(r.url)) reason = 'already in your Recipes';
+    else if (c.skipUrls?.has(r.url)) reason = 'already in Save';
     else if (c.maxMinutes && r.totalMinutes && r.totalMinutes > c.maxMinutes) reason = `takes ${r.totalMinutes} min`;
+    else if (c.easy && shoppingIngredients(r, c.pantry).length > EASY_MAX_INGREDIENTS) reason = `${shoppingIngredients(r, c.pantry).length} ingredients (Easy: ${EASY_MAX_INGREDIENTS} max)`;
+    else if (c.easy && stepCount(r) > EASY_MAX_STEPS) reason = `${stepCount(r)} steps (Easy: ${EASY_MAX_STEPS} max)`;
     else if (c.minRating && r.rating?.value && r.rating.value < c.minRating) reason = `rated ${r.rating.value}`;
     else if (c.exclude?.length) {
       const hit = c.exclude.find((x) => r.ingredients.some((line) => line.toLowerCase().includes(x.toLowerCase())));
@@ -86,7 +105,7 @@ export async function rankRecipes(gemini, recipes, criteria, { liked } = {}) {
   if (!recipes.length) return [];
   const list = recipes.map((r, i) => [
     `[${i}] ${r.name} (${r.site})`,
-    `time: ${r.totalMinutes ?? '?'} min; serves: ${r.servings ?? '?'}; rating: ${r.rating ? `${r.rating.value} (${r.rating.count ?? '?'} ratings)` : '?'}`,
+    `time: ${r.totalMinutes ?? '?'} min; serves: ${r.servings ?? '?'}; steps: ${stepCount(r) ?? '?'}; rating: ${r.rating ? `${r.rating.value} (${r.rating.count ?? '?'} ratings)` : '?'}`,
     `ingredients: ${r.ingredients.slice(0, 25).join('; ')}`,
   ].join('\n')).join('\n\n');
   const out = await gemini.json(

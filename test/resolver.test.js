@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { estimateTotal, heuristicPick, resolveIngredients, setPackages } from '../web/js/resolver.js';
-import { filterRecipes, scaleFor } from '../web/js/recipes.js';
+import { describeCriteria, filterRecipes, generateQueries, scaleFor, shoppingIngredients } from '../web/js/recipes.js';
 
 // Fake Gemini: answers the normalize prompt from a table keyed by line text,
 // and the pick prompt with a provided function.
@@ -213,7 +213,7 @@ test('recommendations: taste profile in prompts, saved recipes skipped', async (
 
   const { kept, rejected } = filterRecipes([recipe, { ...recipe, url: 'https://x/tacos', name: 'Fish Tacos' }], { skipUrls: new Set(['https://x/tacos']) });
   assert.deepEqual(kept.map((r) => r.name), ['Enchiladas']);
-  assert.equal(rejected[0].reason, 'already in your Recipes');
+  assert.equal(rejected[0].reason, 'already in Save');
 });
 
 test('daily ideas: prompt uses season and taste, output is cleaned', async () => {
@@ -231,4 +231,23 @@ test('daily ideas: prompt uses season and taste, output is cleaned', async () =>
   assert.ok(ideas.includes('one-pan gnocchi'), 'bullet stripped');
   assert.equal(await generateIdeas({ json: async () => ({ ideas: ['only', 'three', 'ideas'] }) }), null, 'too few -> keep built-in');
   assert.equal(todayKey(new Date(2026, 0, 5)), '2026-01-05');
+});
+
+test('Easy: ingredient and step limits, pantry staples not counted, query hint', async () => {
+  const base = { site: 's', url: 'u', totalMinutes: 20, rating: null };
+  const ok = { ...base, name: 'Ok', ingredients: ['1 tsp kosher salt', '2 tbsp olive oil', ...Array.from({ length: 10 }, (_, i) => `item ${i}`)], instructions: ['For the sauce:', 'a', 'b'] };
+  const many = { ...base, name: 'Many', ingredients: Array.from({ length: 11 }, (_, i) => `item ${i}`), instructions: ['a'] };
+  const long = { ...base, name: 'Long', ingredients: ['x'], instructions: Array.from({ length: 9 }, (_, i) => `step ${i}`) };
+  const unknown = { ...base, name: 'Unknown steps', ingredients: ['x'] };
+  assert.equal(shoppingIngredients(ok, ['salt', 'olive oil']).length, 10);
+  const { kept, rejected } = filterRecipes([ok, many, long, unknown], { easy: true, pantry: ['salt', 'olive oil'] });
+  assert.deepEqual(kept.map((r) => r.name), ['Ok', 'Unknown steps']);
+  assert.deepEqual(rejected.map((r) => r.reason), ['11 ingredients (Easy: 10 max)', '9 steps (Easy: 8 max)']);
+  assert.equal(filterRecipes([many, long], { easy: false }).kept.length, 2, 'off: no limits');
+  assert.match(describeCriteria({ easy: true }), /Easy: few ingredients/);
+  let prompt;
+  await generateQueries({ json: async (p) => { prompt = p; return { queries: ['easy recipe'] }; } }, { wants: 'tacos', easy: true });
+  assert.match(prompt, /put a word like "easy"/);
+  await generateQueries({ json: async (p) => { prompt = p; return { queries: ['x recipe'] }; } }, { wants: 'tacos' });
+  assert.doesNotMatch(prompt, /put a word like "easy"/);
 });

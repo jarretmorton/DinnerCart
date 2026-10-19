@@ -306,6 +306,8 @@ test('library and prefs round trip through routes', async () => {
   const bad = await handle(req('PUT', '/prefs', { body: { prefs: { modality: 'DRONE' } } }), env);
   assert.equal(bad.status, 400);
   assert.equal((await handle(req('PUT', '/prefs', { body: { prefs: { minRating: 4.5 } } }), env)).status, 200);
+  assert.equal((await handle(req('PUT', '/prefs', { body: { prefs: { easy: true, maxMinutes: 15 } } }), env)).status, 200);
+  assert.equal((await handle(req('PUT', '/prefs', { body: { prefs: { easy: 'yes' } } }), env)).status, 400);
   assert.equal((await handle(req('PUT', '/prefs', { body: { prefs: { minRating: 9 } } }), env)).status, 400);
   assert.equal((await handle(req('PUT', '/prefs', { body: { prefs: { maxMinutes: 30, servings: 4 } } }), env)).status, 200);
   assert.equal((await handle(req('PUT', '/prefs', { body: { prefs: { maxMinutes: null } } }), env)).status, 200);
