@@ -5,7 +5,8 @@
 A personal web app for our household: describe what you feel like eating, get
 free recipes from the web, pick a few, and DinnerCart matches the ingredients
 to Fred Meyer products and adds them to our shared Fred Meyer cart. Checkout
-happens in the Fred Meyer app.
+happens in the Fred Meyer app. When it's time to cook, **Cook** turns any
+recipe into easy, scaled, step-by-step instructions with timers.
 
 - App: <https://jarretmorton.github.io/DinnerCart/>
 - Relay: `https://dinnercart-relay.jarret-morton.workers.dev`
@@ -21,7 +22,8 @@ See [Run your own DinnerCart](#run-your-own-dinnercart).
 </p>
 
 <sub>Recipe results, the matched shopping list, and night mode. Sample data;
-the food pictures are illustrations standing in for recipe and product photos.</sub>
+the food pictures are illustrations standing in for recipe and product photos.
+(These predate the Search / Pick / Save / Config tab names and the Cook button.)</sub>
 
 ```
  Browser (GitHub Pages, /web)                     Cloudflare Worker (/relay)
@@ -29,13 +31,16 @@ the food pictures are illustrations standing in for recipe and product photos.</
  criteria ─► Gemini: 3 search queries
           ─────────────────────────────────────► /search  ─► Brave Search
           ─────────────────────────────────────► /recipe  ─► recipe page → JSON-LD
- filter (time, rating, exclusions)                           (cached in KV)
+ filter (time, rating, leave-out, Easy)                      (cached in KV)
           ─► Gemini: rank, user picks
  ingredients ─► Gemini: normalize lines
-          ─────────────────────────────────────► /kroger/products ─► Kroger API
+          ─► Kroger API, straight from the phone (search-only token from /kroger/token)
+             or, if that fails ────────────────► /kroger/products ─► Kroger API
           ─► Gemini: choose product + count
  review screen (swap / remove / qty)
           ─────────────────────────────────────► /kroger/cart ─► PUT /cart/add
+ Cook: the page's own steps ─► Gemini: easy steps, checked
+          ─────────────────────────────────────► /library (kept with saved recipes)
 ```
 
 The relay exists because browsers can't call Brave or recipe sites directly
@@ -170,14 +175,78 @@ the relay password, so only send it within your household.
 
 ## Using it
 
-1. **Search**: describe what you want, then set time (15 min to 1 hour, or any time) and servings. Every search skips recipes with anything on the household "what to leave out" list in Config. Turn on **Easy** (lightning) for low-effort dinners: at most 10 ingredients not counting pantry staples and at most 8 steps (both adjustable in Config), with searches and ranking steered toward simple, one-pan dishes; recipes over the limits are listed as skipped with the reason. Easy is separate from time, so an easy one-hour roast still counts. Config can turn Easy on by default. The box rotates suggestions ("What sounds good?" ideas are written fresh by Gemini once a day and shared by both of you through the relay, using the light model, the season and your saved recipes; a built-in list covers the gap); tap its label to use the idea shown. Recipes rated below the household minimum (Config, default 4★) are skipped; unrated ones are kept.
-   Or press **Recommend** (no fields needed): Gemini looks at your saved recipes, plus anything you filled in, and finds new dishes in a similar vein, skipping ones you've already saved.
-   **Search** finds recipes for what you typed. **Clear results** empties the results list.
-2. On any recipe, **Pick** it for this shop, **Save** it, or **Cook** it. The **Save** tab is one shared list of everything saved, by hand or automatically when sent to Fred Meyer, grouped into **This week** (weeks start Monday), **Last week**, **Last 30 days** and **Older** by when it was last saved or picked. **Pick** it again or **Remove** it from there. You can also add any recipe by pasting its link at the bottom.
-   **Cook** opens easy step-by-step instructions: Gemini rewrites the recipe page's own steps into one action per step, keeping every temperature, time and amount as the original gives them, with a "Before you start" list (preheat, chop, measure). Amounts scale to the number of people (your picked servings, the search's, or the household default; change it with − / +). Tap a line to tick it off; steps with a wait (bake, simmer, rest) have a timer button, and the timers ring, vibrate and stay on screen. The screen stays on while Cook is open, and Back closes it. Every ingredient on the list has to be named in the steps: if Gemini leaves one out, the app asks it once more to fit the missing ones in, and anything still missing is listed at the top of Cook (steps written before this check get flagged too). If the original mentions a temperature the rewrite left out, Cook says so as well; the original is linked at the top. Cook always uses the strong Gemini model (the light one only if the strong one is rate limited). **Regenerate cook steps** writes them again and replaces the saved ones; **Start cook over** unticks everything. Steps are written once and kept on the phone; saving a recipe (by hand or by sending it to Fred Meyer) stores its Cook steps in the shared Save list, so both of you get them without asking Gemini again. Pages that don't publish their steps in schema.org markup just link to the original.
-3. **Pick**: adjust servings per recipe (quantities scale), then press **Match ingredients**. **Clear picks** empties the picks and shopping list in the app; **Clear list** (next to the send button) empties just the shopping list. Neither touches the Fred Meyer cart.
-4. Review each line: swap to another candidate, search again, change the count, or remove it. Pantry staples, optional garnishes and water are listed under *Not adding*; tap + to add one anyway. If a Fred Meyer search fails, the line says why.
-5. Press **Add to Fred Meyer cart**, then use the **Fred Meyer cart** link below it to review and check out, and **Fred Meyer orders** to see past and current orders (Kroger's API can't read orders, so this opens Fred Meyer's purchases page). On phones these usually open the Fred Meyer app. The recipes you sent are saved to the shared **Save** tab automatically.
+Four tabs: **Search**, **Pick** (this shop's recipes and shopping list),
+**Save** (your shared recipes) and **Config**. On narrow screens the tabs show
+icons only.
+
+### Search
+
+- **What sounds good?** Describe it in your own words. The box rotates ideas
+  that Gemini writes fresh once a day (light model, using the season and your
+  saved recipes; shared by both of you; a built-in list fills the gap). Tap
+  the label to use the idea showing.
+- **Prep time and for how many?** 15 min to 1 hour, or any time; and servings.
+- **Easy** (lightning): low-effort dinners. At most 10 ingredients (pantry
+  staples don't count) and 8 steps, both adjustable in Config, with searches
+  and ranking steered toward simple, one-pan dishes. It's separate from time,
+  so an easy one-hour roast still counts. Config can turn it on by default.
+- **Search** finds recipes for what you typed. **Recommend** needs nothing
+  filled in: Gemini looks at your saved recipes (plus anything you typed) and
+  finds new dishes in a similar vein, skipping ones you've already saved.
+- Every search skips recipes with anything on the household **what to leave
+  out** list (Config), rated below the household minimum (Config, default 4★;
+  unrated ones are kept), over the time, or over the Easy limits. Skipped
+  recipes and pages that couldn't be read are listed with the reason.
+  **Clear results** empties the list.
+
+Every recipe card has **Pick** (for this shop), **Save** and **Cook**.
+
+### Save
+
+One shared list of everything saved, by hand or automatically when sent to
+Fred Meyer, grouped into **This week** (weeks start Monday), **Last week**,
+**Last 30 days** and **Older** by when it was last saved or picked. Filter it,
+**Pick** a recipe again, **Cook** it, or **Remove** it. Add any recipe by
+pasting its link at the bottom.
+
+### Cook
+
+- Gemini rewrites the recipe page's own steps into one action per step, plus
+  a **Before you start** list (preheat, prep pans, chop and measure). Every
+  temperature, time and amount stays as the original gives it. Cook always
+  uses the strong model (the light one only if the strong one is rate limited).
+- **Checked:** every ingredient on the list has to be named in the steps. If
+  Gemini leaves one out, the app asks once more; anything still missing, or a
+  temperature from the original that didn't make it in, is flagged at the top.
+  The original recipe is linked at the top too.
+- Amounts scale to the number of people (your picked servings, the search's,
+  or the household default; change it with − / +), in the steps, the prep list
+  and the ingredients.
+- Tap a line to tick it off; the next step is outlined. Steps with a wait
+  (bake, simmer, rest) have a timer button; timers ring, vibrate and stay on
+  screen even if you close Cook. The screen stays on while Cook is open, and
+  Back closes it.
+- **Regenerate cook steps** writes new ones and replaces the saved ones;
+  **Start cook over** unticks everything.
+- Steps are written once and kept on the phone. Saving a recipe (by hand or by
+  sending it to Fred Meyer) stores its steps in the shared Save list, so both
+  of you get them without asking Gemini again.
+
+### Pick and send
+
+1. Adjust servings per recipe (quantities scale), then press **Match
+   ingredients**. **Clear picks** empties the picks and the shopping list in
+   the app; **Clear list** (next to the send button) empties just the list.
+   Neither touches the Fred Meyer cart.
+2. Review each line: swap to another candidate, search again, change the
+   count, or remove it. Pantry staples, optional garnishes and water are listed
+   under *Not adding*; tap + to add one anyway. If a Fred Meyer search fails,
+   the line says why.
+3. Press **Add to Fred Meyer cart**, then use the **Fred Meyer cart** link
+   below it to review and check out, and **Fred Meyer orders** to see past and
+   current orders (Kroger's API can't read orders, so this opens Fred Meyer's
+   purchases page). On phones these usually open the Fred Meyer app. The
+   recipes you sent are saved to the **Save** tab automatically.
 
 The Kroger cart API is **write-only**: DinnerCart can add items but can't see
 or remove them. If you press *Send again*, the items are added a second time,
@@ -190,7 +259,7 @@ The app version lives in `web/js/version.js` and shows in the header. Bump it wi
 The design language ("Tomato & Basil", with a matching night mode) and the icon rules are written down in `CLAUDE.md`.
 
 ```sh
-npm test                      # unit tests: relay + resolver + units + eval scoring
+npm test                      # unit tests: relay, resolver, recipes, Cook, units, eval scoring
 npm run serve                 # site at http://localhost:8080 (already in ALLOWED_ORIGINS)
 
 cd relay && npm install
@@ -258,7 +327,13 @@ the original page's instructions, and always links to the source page.
 - Kroger's API sits behind a bot firewall that sometimes blocks Cloudflare's shared servers ("403 Access Denied"). So the app searches products **directly from the phone**, using a search-only token from the relay in the web address (Kroger allows browser requests, but refuses the CORS preflight a header would need), and falls back to the relay per item if that fails. **Check setup** shows which path is working and, if direct search fails, why. Relay requests identify the app, run 2 product searches at a time, retry once after a firewall block and then stop for that request, and cache product results for 6 hours.
 - Pages that block bots or have no `schema.org/Recipe` markup are skipped. They're listed under "couldn't be read" with the reason.
 - Free Cloudflare Workers get 10 ms of CPU per request. That's why each recipe page is parsed in its own request.
+- Cook needs the recipe page to publish its steps in `schema.org/Recipe` markup; pages that don't just link to the original. Gemini's rewrite is checked for missing ingredients and temperatures, but it can still get something wrong, so glance at the original for anything critical.
 - The Gemini free tier is rate-limited. Each visit starts on the strong model (`gemini-flash-latest`). When it hits its limit, the app switches to the light model (`gemini-flash-lite-latest`) until you reload. The Strong (anvil) / Light (feather) toggle in Config shows which model is active and can be switched by hand.
+
+## Credits
+
+- Fonts: [Fraunces](https://github.com/undercasetype/Fraunces) and [Inter](https://github.com/rsms/inter), both under the SIL Open Font License, self-hosted in `web/fonts/`.
+- Icons: drawn for DinnerCart, except the feather (Light model), which is from [Tabler Icons](https://tabler.io/icons) (MIT License, © 2020-2024 Paweł Kuna).
 
 ## Build plan status
 
@@ -267,6 +342,11 @@ the original page's instructions, and always links to the source page.
 - [x] Recipe search: Brave + JSON-LD extraction in the Worker.
 - [x] UI: criteria, results, review screen, settings (Gemini key, relay password, store, pantry), plus Recommend, daily ideas and the Tomato & Basil design.
 - [x] Saved recipe library, plus KV caching of parsed recipes and search results.
+
+Added since: Cook (easy, scaled, checked steps with timers), the Easy filter,
+Recommend and daily ideas, direct-from-phone product search, the Fred Meyer
+cart and orders links, the one-tap setup link, and deploys that work for any
+fork.
 
 Out of scope for the MVP: meal planning, price/coupon optimization, nutrition
 tracking, purchase-history learning. One relay serves one household; other
