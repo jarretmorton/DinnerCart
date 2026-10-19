@@ -16,14 +16,15 @@ relay, Fred Meyer login, shared recipes and password. It's all free tiers.
 See [Run your own DinnerCart](#run-your-own-dinnercart).
 
 <p>
-  <img width="250" alt="Search: recipe results with ratings, time and a reason each one fits" src="docs/screenshots/find.png"/>
-  <img width="250" alt="Pick: shopping list matched to Fred Meyer products, ready to send" src="docs/screenshots/cart.png"/>
-  <img width="250" alt="Search in night mode" src="docs/screenshots/find-night.png"/>
+  <img width="200" alt="Search: the form with Easy on, and recipe results with a reason each one fits" src="docs/screenshots/search-night.png"/>
+  <img width="200" alt="Search results: a picked recipe with Pick, Save and Cook" src="docs/screenshots/search.png"/>
+  <img width="200" alt="Cook: Before you start ticked off, the current step, and a running timer" src="docs/screenshots/cook.png"/>
+  <img width="200" alt="Pick: shopping list matched to Fred Meyer products, ready to send" src="docs/screenshots/pick.png"/>
 </p>
 
-<sub>Recipe results, the matched shopping list, and night mode. Sample data;
-the food pictures are illustrations standing in for recipe and product photos.
-(These predate the Search / Pick / Save / Config tab names and the Cook button.)</sub>
+<sub>Search (night mode), a recipe card, Cook, and the matched shopping list.
+Sample data; the food pictures are illustrations standing in for recipe and
+product photos. Retake them with `docs/screenshots/make/take.mjs`.</sub>
 
 ```
  Browser (GitHub Pages, /web)                     Cloudflare Worker (/relay)
@@ -73,6 +74,7 @@ single-use `state` value.
 | `eval/` | 50 real recipe lines, each with the product it should match, plus the scoring script. |
 | `test/`, `relay/test/` | Unit tests (`npm test`, no dependencies). |
 | `docs/build-plan.md` | The original build plan. |
+| `docs/screenshots/` | README screenshots; `make/take.mjs` retakes them against sample data. |
 | `CLAUDE.md` | Working rules for Claude Code: version bumps, design language, checks before pushing. |
 
 ## Run your own DinnerCart
