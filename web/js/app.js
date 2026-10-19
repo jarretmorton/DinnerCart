@@ -16,9 +16,13 @@ import { makeSetupLink, readSetupLink } from './setup-link.js';
 
 const $ = (sel) => document.querySelector(sel);
 const VIEWS = ['find', 'cart', 'recipes', 'settings'];
-// Opens the Fred Meyer app on phones that have it installed.
+// These open the Fred Meyer app on phones that have it installed. The Kroger
+// API can't read orders, so "orders" is Fred Meyer's purchases page (newest first).
 const FM_CART_URL = 'https://www.fredmeyer.com/cart';
-const fmCartLink = (text = 'Open Fred Meyer cart ↗') => `<a href="${FM_CART_URL}" target="_blank" rel="noopener">${text}</a>`;
+const FM_ORDERS_URL = 'https://www.fredmeyer.com/mypurchases';
+const extLink = (url, text) => `<a class="ext" href="${url}" target="_blank" rel="noopener">${text}${icon('external')}</a>`;
+const fmCartLink = (text = 'Fred Meyer cart') => extLink(FM_CART_URL, text);
+const fmLinks = () => `<div class="fm-links">${fmCartLink()}${extLink(FM_ORDERS_URL, 'Fred Meyer orders')}</div>`;
 
 let settings = storage.loadSettings();
 let prefs = storage.loadPrefs();
@@ -256,7 +260,7 @@ function renderCart() {
   const cart = state.cart;
   const storeName = prefs.store?.name;
   if (!state.selected.length && !cart) {
-    picked.innerHTML = `<div class="card"><h2>Nothing picked yet</h2><p class="muted">Pick recipes on <a href="#find">Find</a> or from your saved <a href="#recipes">Recipes</a>.</p><p>${fmCartLink()}</p></div>`;
+    picked.innerHTML = `<div class="card"><h2>Nothing picked yet</h2><p class="muted">Pick recipes on <a href="#find">Find</a> or from your saved <a href="#recipes">Recipes</a>.</p>${fmLinks()}</div>`;
     $('#cart').innerHTML = '';
     return;
   }
@@ -300,10 +304,13 @@ function renderShoppingList() {
     ${removed.length ? `<div class="card"><h3>Removed</h3><div class="chips">${removed.map((i) => `<span class="chip">${h(i.name)}<button class="small link" data-action="restore-item" data-key="${h(i.key)}">undo</button></span>`).join('')}</div></div>` : ''}
     <div class="card sendbar">
       <div><strong>${plural(sendable.length, 'product')}</strong> · est. ${money(estimateTotal(sendable))}
-        <div class="muted small-text">${prefs.modality === 'DELIVERY' ? 'Delivery' : 'Pickup'} cart${cart.sentAt ? ` · sent ${new Date(cart.sentAt).toLocaleString()}` : ''} · ${fmCartLink()}</div></div>
-      <div class="sendbar-actions">
-        <button class="primary" data-action="send-cart" ${sendable.length ? '' : 'disabled'}>${cart.sentAt ? 'Send again' : 'Add to Fred Meyer cart'}</button>
-        <button data-action="clear-list">Clear list</button>
+        ${cart.sentAt ? `<div class="muted small-text">Sent ${new Date(cart.sentAt).toLocaleString()}</div>` : ''}</div>
+      <div class="sendbar-side">
+        <div class="sendbar-actions">
+          <button class="primary" data-action="send-cart" ${sendable.length ? '' : 'disabled'}>${cart.sentAt ? 'Send again' : 'Add to Fred Meyer cart'}</button>
+          <button data-action="clear-list">Clear list</button>
+        </div>
+        ${fmLinks()}
       </div>
     </div>`;
 }
@@ -390,7 +397,7 @@ async function sendCart() {
       cart.sentAt = Date.now();
       persist();
       setStatus(status, `Added ${r.added} products. Review and check out in Fred Meyer: `, 'ok');
-      status.insertAdjacentHTML('beforeend', fmCartLink());
+      status.insertAdjacentHTML('beforeend', fmCartLink('Open Fred Meyer cart'));
       renderCart();
       // Picked recipes are saved to the shared Recipes tab automatically.
       relay().libraryPicked(state.selected.slice(0, 20).map((s) => s.recipe))

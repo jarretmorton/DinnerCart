@@ -175,7 +175,7 @@ the relay password, so only send it within your household.
 2. On any recipe, **Pick** it for this shop or **Save** it. The **Recipes** tab is one shared list of everything saved, by hand or automatically when sent to Fred Meyer, grouped into **This week** (weeks start Monday), **Last week**, **Last 30 days** and **Older** by when it was last saved or picked. **Pick** it again or **Remove** it from there. You can also add any recipe by pasting its link at the bottom.
 3. **Cart**: adjust servings per recipe (quantities scale), then press **Match ingredients**. **Clear cart** empties the picks and shopping list in the app; **Clear list** (next to the send button) empties just the shopping list. Neither touches the Fred Meyer cart.
 4. Review each line: swap to another candidate, search again, change the count, or remove it. Pantry staples, optional garnishes and water are listed under *Not adding*; tap + to add one anyway. If a Fred Meyer search fails, the line says why.
-5. Press **Add to Fred Meyer cart**, then use **Open Fred Meyer cart** to review and check out. On phones it usually opens the Fred Meyer app. The recipes you sent are saved to the shared **Recipes** tab automatically.
+5. Press **Add to Fred Meyer cart**, then use the **Fred Meyer cart** link below it to review and check out, and **Fred Meyer orders** to see past and current orders (Kroger's API can't read orders, so this opens Fred Meyer's purchases page). On phones these usually open the Fred Meyer app. The recipes you sent are saved to the shared **Recipes** tab automatically.
 
 The Kroger cart API is **write-only**: DinnerCart can add items but can't see
 or remove them. If you press *Send again*, the items are added a second time,
