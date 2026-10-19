@@ -9,7 +9,8 @@ import { escapeHtml as h } from './util.js';
 
 export class NoStepsError extends Error {}
 
-export function createCookView({ root, timersEl, toast }) {
+// onClose runs after the sheet closes.
+export function createCookView({ root, timersEl, toast, onClose = () => {} }) {
   let current = null; // { recipe, servings, load, cook, error, progress }
   let wakeLock = null;
   const timers = []; // { id, label, endsAt, done }
@@ -113,6 +114,7 @@ export function createCookView({ root, timersEl, toast }) {
     document.body.classList.remove('cook-open');
     wakeLock?.release().catch(() => {});
     wakeLock = null;
+    onClose();
   }
 
   function close() {
@@ -193,7 +195,7 @@ export function createCookView({ root, timersEl, toast }) {
 
   // ------------------------------------------------------------ taps
 
-  root.addEventListener('click', (e) => {
+  root.addEventListener('click', async (e) => {
     const el = e.target.closest('[data-cook]');
     if (!el || !current || e.target.closest('a')) return;
     const i = Number(el.dataset.i);
@@ -211,7 +213,8 @@ export function createCookView({ root, timersEl, toast }) {
       case 'prep': toggle(progress.prep); break;
       case 'step': toggle(progress.steps); break;
       case 'regenerate':
-        if (!confirm('Write the cook steps again with Gemini? The new steps replace these.')) return;
+        await new Promise((r) => setTimeout(r, 60)); // it goes solid on tap; let that paint first
+        if (!confirm('Write the cook steps again with Gemini? The new steps replace these.')) return el.classList.remove('on');
         current.progress = { prep: [], steps: [] };
         storage.saveProgress(current.recipe.url, current.progress);
         return load({ fresh: true });

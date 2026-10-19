@@ -24,7 +24,9 @@ the change.
   - `go` (basil green) moves you forward: search, pick, cook, match, send,
     check, share, add.
   - `keep` (tomato red) saves, removes or changes the account.
-  - Both are outlined until done or in effect, then `.on` makes them solid:
+  - Both go solid (`.on`) the moment they're tapped; `syncButtons()` in
+    `app.js` then settles the state-backed ones, so a cancel or failure
+    returns to an outline. Solid means done or in effect:
     the search method behind the results, Picked, Saved, Cook when steps exist,
     Match while the list fits the picks, Send until the list changes, a Config
     Save until the form is edited again, Remove while its confirm is up.
@@ -38,8 +40,8 @@ the change.
   An icon borrowed from an open-source set in that style (e.g. Tabler, MIT) is
   fine; credit it in a comment next to it and in the README's Credits.
 - App icon: `web/icon.svg` is the master (also the header logo). If it changes,
-  re-render `web/favicon-32.png` (32px) and `web/apple-touch-icon.png` (180px)
-  from it.
+  re-render `web/favicon-32.png` (32px), `web/apple-touch-icon.png` (180px)
+  and the manifest's `web/icon-192.png` and `web/icon-512.png` from it.
 
 ## Before pushing
 

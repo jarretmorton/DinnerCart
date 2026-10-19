@@ -154,11 +154,12 @@ button[hidden] { display: none; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
 .recipe { display: flex; flex-direction: column; padding: 0; overflow: hidden; margin: 0; }
 .recipe.selected { outline: 2px solid var(--basil); outline-offset: -1px; }
-.recipe img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; background: var(--line); border-bottom: 1px dashed var(--rule); }
+.recipe .photo { position: relative; display: block; color: inherit; }
+/* The photo opens the original recipe; the corner badge says so. */
+.recipe .photo-go { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--card); color: var(--basil); box-shadow: 0 1px 4px rgba(0,0,0,0.25); }
+.recipe img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; background: var(--line); border-bottom: 1px dashed var(--rule); }
 .recipe .noimg { aspect-ratio: 16 / 10; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-size: 3rem; border-bottom: 1px dashed var(--rule); }
 .recipe .body { padding: 14px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
-.recipe h3 a { color: var(--text); text-decoration: none; }
-.recipe h3 a:hover { text-decoration: underline; }
 .meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.85rem; color: var(--muted); }
 .meta span { display: inline-flex; align-items: center; gap: 4px; }
 .why { font-size: 0.92rem; font-style: italic; color: var(--text); opacity: 0.85; }

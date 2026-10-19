@@ -68,20 +68,56 @@ function toast(text, kind = '') {
   toastTimer = setTimeout(() => { el.hidden = true; }, kind === 'error' ? 7000 : 3500);
 }
 
+// Resolves true if fn finished, false if it failed or something else was running.
 async function guarded(statusEl, fn) {
-  if (busy) return;
+  if (busy) {
+    syncButtons();
+    return false;
+  }
   busy = true;
   document.body.classList.add('busy');
   try {
     await fn();
+    return true;
   } catch (err) {
     console.error(err);
     if (statusEl) setStatus(statusEl, err.message, 'error');
     else toast(err.message, 'error');
+    return false;
   } finally {
     busy = false;
     document.body.classList.remove('busy');
+    syncButtons();
   }
+}
+
+// ---------------------------------------------------------------- button states
+
+// Green (go) and red (keep) buttons go solid the moment they're tapped.
+// syncButtons() then settles the ones backed by state to what's true (picked,
+// saved, steps written, list matched or sent), so a cancel or a failure turns
+// them back to an outline. Config buttons settle where they're handled.
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button.go, button.keep');
+  if (b && !b.disabled) b.classList.add('on');
+}, true);
+
+// Lets a button that just went solid paint before a confirm() blocks the page.
+const painted = () => new Promise((r) => setTimeout(r, 60));
+
+let searchingMode = null; // the search running now, if any
+
+function syncButtons() {
+  markSearchMethod(searchingMode || state.results?.mode);
+  document.querySelectorAll('button[data-url]').forEach((b) => {
+    const { action, url } = b.dataset;
+    if (action === 'toggle-pick' && b.classList.contains('go')) b.classList.toggle('on', isPicked(url));
+    if (action === 'save') b.classList.toggle('on', Boolean(savedEntry(url)));
+    if (action === 'cook') b.classList.toggle('on', hasCook(url));
+  });
+  document.querySelectorAll('[data-action="lib-delete"]').forEach((b) => b.classList.remove('on'));
+  $('[data-action="build-cart"]')?.classList.toggle('on', listMatchesPicks());
+  $('[data-action="send-cart"]')?.classList.toggle('on', listSent());
 }
 
 function allKnownRecipes() {
@@ -108,6 +144,9 @@ function cartLines(cart) {
   return [...byUpc].map(([upc, quantity]) => ({ upc, quantity }));
 }
 const linesSignature = (cart) => cartLines(cart).map((l) => `${l.upc}x${l.quantity}`).join('|');
+const listMatchesPicks = () => Boolean(state.cart) && state.cart.signature === pickSignature();
+// Sent, and unchanged since (older carts didn't record what was sent).
+const listSent = () => Boolean(state.cart?.sentAt) && (state.cart.sentSignature ?? linesSignature(state.cart)) === linesSignature(state.cart);
 
 // ---------------------------------------------------------------- routing
 
@@ -150,9 +189,11 @@ function recipeCard(recipe, { reason, libraryId } = {}) {
   ].filter(Boolean).join('');
   return `
     <article class="card recipe ${picked ? 'selected' : ''}">
-      ${recipe.image ? `<img src="${h(recipe.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="dcImageFallback(this)">` : `<div class="noimg">${icon('bowl')}</div>`}
+      <a class="photo" href="${h(recipe.url)}" target="_blank" rel="noopener" aria-label="Open the original recipe: ${h(recipe.name)}">
+        ${recipe.image ? `<img src="${h(recipe.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="dcImageFallback(this)">` : `<div class="noimg">${icon('bowl')}</div>`}
+        <span class="photo-go">${icon('external')}</span></a>
       <div class="body">
-        <h3><a href="${h(recipe.url)}" target="_blank" rel="noopener">${h(recipe.name)}</a></h3>
+        <h3>${h(recipe.name)}</h3>
         <div class="meta">${meta}</div>
         ${reason ? `<div class="why">${h(reason)}</div>` : ''}
         <details><summary>${plural((recipe.ingredients || []).length, 'ingredient')}</summary>
@@ -220,11 +261,12 @@ async function runSearch(event) {
   if (!configured()) {
     toast('Finish Config first (relay URL, password, Gemini key).', 'error');
     location.hash = 'settings';
-    return;
+    return syncButtons();
   }
   // Search, Suggest (more like your saved recipes) or New (unlike them).
   const mode = { 'suggest-btn': 'recommend', 'new-btn': 'new' }[event.submitter?.id] || 'find';
   const recommend = mode !== 'find';
+  markSearchMethod(mode);
   // What to leave out, the pantry and the Easy limits come from Config.
   const criteria = {
     ...readCriteria(event.target),
@@ -236,11 +278,12 @@ async function runSearch(event) {
   };
   if (!recommend && !criteria.wants) {
     setStatus(status, 'Tell me what sounds good, or try Suggest or New.', 'error');
-    return;
+    return syncButtons();
   }
   const buttons = [$('#search-btn'), $('#suggest-btn'), $('#new-btn')];
   await guarded(status, async () => {
     buttons.forEach((b) => { b.disabled = true; });
+    searchingMode = mode;
     try {
       state.criteria = criteria;
       let liked;
@@ -254,6 +297,7 @@ async function runSearch(event) {
       setStatus(status, '');
       renderResults();
     } finally {
+      searchingMode = null;
       buttons.forEach((b) => { b.disabled = false; });
     }
   });
@@ -326,8 +370,8 @@ function renderCart() {
 function renderShoppingList() {
   const el = $('#cart');
   const cart = state.cart;
-  // Solid while the list matches the picks and servings (servings edits only redraw from here).
-  $('[data-action="build-cart"]')?.classList.toggle('on', cart?.signature === pickSignature());
+  // Servings edits only redraw from here.
+  $('[data-action="build-cart"]')?.classList.toggle('on', listMatchesPicks());
   if (!cart) {
     el.innerHTML = '';
     return;
@@ -336,8 +380,7 @@ function renderShoppingList() {
   const removed = cart.items.filter((i) => i.removed);
   const sendable = active.filter((i) => i.candidates[i.choice] && i.packages > 0);
   const missing = active.filter((i) => !i.candidates[i.choice]);
-  // Solid only while the list is exactly what was sent (older carts didn't record it).
-  const unchanged = (cart.sentSignature ?? linesSignature(cart)) === linesSignature(cart);
+  const unchanged = listSent() || !cart.sentAt;
   el.innerHTML = `
     ${cart.signature !== pickSignature() ? '<div class="notice">Your picks or servings changed since this list was built. Rebuild to update it.</div>' : ''}
     <div class="card">
@@ -352,7 +395,7 @@ function renderShoppingList() {
         ${cart.sentAt ? `<div class="muted small-text">Sent ${new Date(cart.sentAt).toLocaleString()}${unchanged ? '' : ' · list changed since'}</div>` : ''}</div>
       <div class="sendbar-side">
         <div class="sendbar-actions">
-          <button class="go ${cart.sentAt && unchanged ? 'on' : ''}" data-action="send-cart" ${sendable.length ? '' : 'disabled'}>${cart.sentAt ? 'Send again' : 'Add to Fred Meyer cart'}</button>
+          <button class="go ${listSent() ? 'on' : ''}" data-action="send-cart" ${sendable.length ? '' : 'disabled'}>${cart.sentAt ? 'Send again' : 'Add to Fred Meyer cart'}</button>
           <button class="clear" data-action="clear-list">Clear list</button>
         </div>
         ${fmLinks()}
@@ -393,8 +436,11 @@ const findItem = (key) => state.cart?.items.find((i) => i.key === key);
 
 async function buildCart() {
   const status = $('#cart-status');
-  if (!configured()) { location.hash = 'settings'; return toast('Finish Config first.', 'error'); }
-  if (!prefs.store?.locationId) { location.hash = 'settings'; return toast('Choose your Fred Meyer store first.', 'error'); }
+  if (!configured() || !prefs.store?.locationId) {
+    syncButtons();
+    location.hash = 'settings';
+    return toast(configured() ? 'Choose your Fred Meyer store first.' : 'Finish Config first.', 'error');
+  }
   await guarded(status, async () => {
     const recipes = state.selected.map((s) => ({ name: s.recipe.name, ingredients: s.recipe.ingredients || [], scale: scaleFor(s.recipe, s.servings) }));
     const result = await resolveIngredients({
@@ -427,7 +473,7 @@ async function searchFor(item, term) {
 async function sendCart() {
   const cart = state.cart;
   const items = cartLines(cart);
-  if (cart.sentAt && !confirm('These were already sent. The Fred Meyer cart can\'t be read or edited from here, so sending again will add duplicates. Send anyway?')) return;
+  if (cart.sentAt && !(await painted(), confirm('These were already sent. The Fred Meyer cart can\'t be read or edited from here, so sending again will add duplicates. Send anyway?'))) return syncButtons();
   const status = $('#cart-status');
   await guarded(status, async () => {
     setStatus(status, `Adding ${items.length} products to your Fred Meyer cart…`);
@@ -522,7 +568,7 @@ async function addByUrl() {
 
 // ---------------------------------------------------------------- cook
 
-const cookView = createCookView({ root: $('#cook'), timersEl: $('#timers'), toast });
+const cookView = createCookView({ root: $('#cook'), timersEl: $('#timers'), toast, onClose: syncButtons });
 
 // Steps written on this device ride along when a recipe gets saved, so
 // they're in the shared library for both of you.
@@ -536,7 +582,7 @@ function openCook(url) {
   const fromResults = state.results?.ranked?.find((r) => r.recipe.url === url)?.recipe;
   const pick = state.selected.find((s) => s.recipe.url === url);
   const recipe = { ...pick?.recipe, ...fromResults, ...savedEntry(url) };
-  if (!recipe.url) return;
+  if (!recipe.url) return syncButtons();
   recipe.ingredients ||= [];
   const view = location.hash.slice(1);
   const servings = pick?.servings || (view === 'find' && state.criteria?.servings) || prefs.servings || recipe.servings;
@@ -562,8 +608,6 @@ async function loadCook(recipe, { fresh = false } = {}) {
     // it falls back to the light one only if the strong one is rate limited.
     cook = await generateCook(createGemini({ apiKey: settings.geminiKey, model: createModelSwitch() }), recipe, instructions);
     storage.saveCook(recipe.url, cook);
-    // Its Cook buttons go solid: steps exist now.
-    document.querySelectorAll('[data-action="cook"]').forEach((b) => { if (b.dataset.url === recipe.url) b.classList.add('on'); });
   }
   if (saved) {
     relay().librarySave({ ...saved, cook })
@@ -673,7 +717,7 @@ async function diagnose() {
 async function findStores() {
   const zip = $('#zip').value.trim();
   const el = $('#store-list');
-  await guarded(null, async () => {
+  return guarded(null, async () => {
     el.innerHTML = '<p class="muted">Searching…</p>';
     const { locations } = await relay().locations(zip);
     el.innerHTML = locations.length
@@ -693,13 +737,9 @@ document.addEventListener('click', async (e) => {
     case 'toggle-pick': return togglePick(url);
     case 'save': return saveRecipe(url);
     case 'cook': return openCook(url);
-    case 'lib-delete': {
-      btn.classList.add('on');
-      await new Promise((r) => setTimeout(r, 60)); // let it paint before the dialog
-      const ok = confirm('Remove this recipe from Save (for both of you)?');
-      btn.classList.remove('on');
-      if (!ok) return;
-    }
+    case 'lib-delete':
+      await painted();
+      if (!confirm('Remove this recipe from Save (for both of you)?')) return syncButtons();
       return guarded($('#library-status'), async () => {
         await relay().libraryDelete(id);
         library = library.filter((r) => r.id !== id);
@@ -781,15 +821,21 @@ document.addEventListener('change', (e) => {
 
 $('#criteria').addEventListener('submit', runSearch);
 $('#library-filter').addEventListener('input', renderLibrary);
-$('#add-url-btn').addEventListener('click', addByUrl);
-$('#zip-btn').addEventListener('click', findStores);
+// Add is solid while it reads the page; Find stores stays solid over its results.
+$('#add-url-btn').addEventListener('click', () => addByUrl().finally(() => $('#add-url-btn').classList.remove('on')));
+$('#zip-btn').addEventListener('click', async () => { if (!await findStores()) $('#zip-btn').classList.remove('on'); });
 $('#diagnose-btn').addEventListener('click', diagnose);
-$('#kroger-connect').addEventListener('click', () => guarded(null, () => connectKroger()));
-$('#kroger-disconnect').addEventListener('click', () => guarded(null, async () => {
-  if (!confirm('Disconnect the Fred Meyer account for both of you?')) return;
-  await relay().krogerDisconnect();
-  refreshKrogerStatus();
-}));
+$('#kroger-connect').addEventListener('click', async () => {
+  if (!await guarded(null, () => connectKroger())) $('#kroger-connect').classList.remove('on');
+});
+$('#kroger-disconnect').addEventListener('click', async () => {
+  await painted();
+  const ok = confirm('Disconnect the Fred Meyer account for both of you?') && await guarded(null, async () => {
+    await relay().krogerDisconnect();
+    refreshKrogerStatus();
+  });
+  if (!ok) $('#kroger-disconnect').classList.remove('on');
+});
 
 $('#settings-form').addEventListener('input', () => $('#device-save').classList.remove('on'));
 $('#prefs-form').addEventListener('input', () => $('#prefs-save').classList.remove('on'));
@@ -809,6 +855,21 @@ $('#settings-form').addEventListener('submit', async (e) => {
   renderSettings();
 });
 
+// An app added to the home screen keeps its own storage and has no address
+// bar to open a setup link in, so the link can be pasted here instead.
+$('#paste-setup-btn').addEventListener('click', async () => {
+  const text = (prompt('Paste the setup link (Config → Share setup link, on a phone that\'s set up):') || '').trim();
+  if (!text) return;
+  const hash = text.slice(Math.max(0, text.indexOf('#')));
+  if (!readSetupLink(hash)) return toast("That isn't a DinnerCart setup link.", 'error');
+  applySetupLink(hash);
+  library = null;
+  await loadRemotePrefs();
+  applySearchDefaults();
+  renderSettings();
+  route();
+});
+
 $('#share-setup-btn').addEventListener('click', () => guarded(null, async () => {
   if (!relayUrl() || !settings.relayPassword) throw new Error('Save the relay URL and password on this device first.');
   const link = makeSetupLink(`${location.origin}${location.pathname}`, {
@@ -826,7 +887,7 @@ $('#share-setup-btn').addEventListener('click', () => guarded(null, async () => 
   }
   await navigator.clipboard.writeText(link);
   toast('Setup link copied. Open it on the other phone.');
-}));
+}).then(() => $('#share-setup-btn').classList.remove('on')));
 
 $('#prefs-form').addEventListener('submit', (e) => {
   e.preventDefault();
@@ -848,14 +909,14 @@ $('#prefs-form').addEventListener('submit', (e) => {
     applySearchDefaults();
     toast('Household settings saved');
     $('#prefs-save').classList.add('on');
-  });
+  }).then((ok) => { if (!ok) $('#prefs-save').classList.remove('on'); });
 });
 
 // ---------------------------------------------------------------- start
 
 // Opened from a "Share setup link" link: save its settings on this device.
-function applySetupLink() {
-  const fromLink = readSetupLink(location.hash);
+function applySetupLink(hash = location.hash) {
+  const fromLink = readSetupLink(hash);
   if (!fromLink) return;
   const differs = settings.relayPassword && (settings.relayPassword !== fromLink.relayPassword || (settings.relayUrl || '') !== (fromLink.relayUrl || ''));
   if (!differs || confirm('Replace the DinnerCart settings on this device with the ones from this link?')) {

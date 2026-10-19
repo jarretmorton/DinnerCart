@@ -10,10 +10,16 @@
     tomato-slice wheels, on --basil. icon.svg is the master; favicon-32.png
     covers browsers that ignore SVG favicons, and apple-touch-icon.png is
     separate because iOS does not use SVG favicons for Add to Home Screen.
+    icon-192.png and icon-512.png are for the manifest (Android home screen).
   -->
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <!-- Added to the home screen, it opens as its own app instead of a new browser tab each time. -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="DinnerCart">
   <link rel="preload" href="fonts/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="fonts/fonts.css">
@@ -85,7 +91,7 @@
     <section id="view-settings" class="view" hidden>
       <form id="settings-form" class="card form">
         <h2 class="wide">This device</h2>
-        <p class="wide hint">Stored only in this browser.</p>
+        <p class="wide hint">Stored only in this browser (an app added to the home screen keeps its own). Have a setup link? <button type="button" class="small link" id="paste-setup-btn">Paste it here</button></p>
         <label class="wide">Relay URL <input name="relayUrl" type="url" placeholder="https://dinnercart-relay.YOURNAME.workers.dev"></label>
         <p class="wide hint" id="relay-url-hint" hidden>Already set for this site. Leave it blank unless you use a different relay.</p>
         <label class="wide">Relay password <input name="relayPassword" type="password" autocomplete="current-password"></label>

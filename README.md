@@ -175,6 +175,17 @@ uses their own free Gemini quota. The settings travel in the part of the
 link after `#`, which browsers never send to any server. The link does carry
 the relay password, so only send it within your household.
 
+### 8. Put it on the home screen
+
+Add the site to each phone's home screen (Safari: Share → **Add to Home
+Screen**; Chrome on Android: ⋮ → **Add to Home screen** or **Install app**).
+It then opens as its own app, on Search, instead of a new browser tab each
+time. If an icon was added before version 1.30, remove it and add it again.
+
+On an iPhone the home-screen app keeps its own storage, apart from Safari, so
+it starts at Config the first time. Tap **Paste it here** (under This device)
+and paste a setup link from **Share setup link**, or type the settings in.
+
 ## Using it
 
 Four tabs: **Search**, **Pick** (this shop's recipes and shopping list),
@@ -188,7 +199,9 @@ Saves). Both start outlined and go solid once they're done or in effect: the
 search method behind the results, a picked or saved recipe, Cook when its
 steps are already written, Match while the list fits the picks, Add to Fred
 Meyer cart until the list changes. Plain red text clears (Clear results,
-Clear picks, Clear list, remove). Links are green.
+Clear picks, Clear list, remove). Links are green. Buttons go solid as soon
+as you tap them (the other search buttons go back to outlines), and turn back
+to an outline if you cancel or it fails.
 
 ### Search
 
@@ -217,7 +230,8 @@ Clear picks, Clear list, remove). Links are green.
   stays solid.
 
 Every recipe card has **Pick** (for this shop), **Save** and **Cook**. A
-picked card gets a green outline.
+picked card gets a green outline. Tap the photo (it has a ↗ badge) to open
+the original recipe page.
 
 ### Save
 
