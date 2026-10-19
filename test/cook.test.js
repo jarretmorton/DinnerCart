@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cookText, formatNumber, generateCook, missingTemperatures, parseNumber, scaleAmount, splitAmounts } from '../web/js/cook.js';
+import { cookText, formatNumber, generateCook, missingIngredients, missingTemperatures, parseNumber, scaleAmount, splitAmounts } from '../web/js/cook.js';
 
 test('parseNumber and formatNumber handle fractions', () => {
   assert.equal(parseNumber('1 1/2'), 1.5);
@@ -71,4 +71,43 @@ test('generateCook: prompt carries the original steps; output is cleaned and che
   assert.equal(cook.model, 'gemini-flash-latest');
   assert.equal(cook.generatedAt, '2026-10-19T12:00:00.000Z');
   await assert.rejects(generateCook(gemini, recipe, []), /no steps/);
+});
+
+test('missingIngredients: names, plurals, descriptors, shared words, and/or', () => {
+  const ingredients = [
+    '1 1/2 lb boneless skinless chicken thighs, trimmed', '2 cups broccoli florets', '2 tbsp extra-virgin olive oil',
+    '1 tbsp toasted sesame oil', 'Salt and pepper, to taste', '1 (15 oz) can black beans, drained and rinsed',
+    'Juice of 1 lemon', '2 green onions, sliced', 'For the sauce:', '1/4 cup butter or margarine', '2 tomatoes', '1 cup all-purpose flour',
+  ];
+  const cook = { prep: ['Preheat the oven.'], steps: [
+    { text: 'Toss {{1 1/2 lb}} chicken and the broccoli with {{2 tbsp}} olive oil, salt and pepper.' },
+    { text: 'Add the beans and the lemon juice.' },
+    { text: 'Melt {{1/4 cup}} margarine; stir in the tomato and flour.' },
+  ] };
+  assert.deepEqual(missingIngredients(ingredients, cook), ['1 tbsp toasted sesame oil', '2 green onions, sliced']);
+  cook.steps.push({ text: 'Drizzle with sesame oil and top with green onions.' });
+  assert.deepEqual(missingIngredients(ingredients, cook), []);
+  assert.deepEqual(missingIngredients(['Salt and pepper'], { prep: [], steps: [{ text: 'Season with salt.' }] }), ['Salt and pepper'], 'both parts needed');
+});
+
+test('generateCook asks once more when an ingredient is missing', async () => {
+  const prompts = [];
+  const drafts = [
+    { prep: [], steps: [{ text: 'Cook {{8 oz}} pasta.', timerMinutes: 10, timerLabel: 'Pasta' }, { text: 'Toss with the sauce.', timerMinutes: null, timerLabel: null }] },
+    { prep: [], steps: [{ text: 'Cook {{8 oz}} pasta.', timerMinutes: 10, timerLabel: 'Pasta' }, { text: 'Toss with {{1 cup}} pesto and {{1/4 cup}} parmesan.', timerMinutes: null, timerLabel: null }] },
+  ];
+  const gemini = { model: 'm', json: async (prompt) => { prompts.push(prompt); return drafts[prompts.length - 1]; } };
+  const recipe = { name: 'Pesto pasta', servings: 2, ingredients: ['8 oz pasta', '1 cup pesto', '1/4 cup grated parmesan'] };
+  const cook = await generateCook(gemini, recipe, ['Cook pasta 10 minutes.', 'Toss with pesto and parmesan.']);
+  assert.equal(prompts.length, 2);
+  assert.match(prompts[1], /aren't named in the draft:\n- 1 cup pesto\n- 1\/4 cup grated parmesan/);
+  assert.match(prompts[1], /Your draft:[\s\S]*1\. Cook \{\{8 oz\}\} pasta\. \[timer: 10 min, Pasta\]/);
+  assert.equal(cook.steps[1].text, 'Toss with {{1 cup}} pesto and {{1/4 cup}} parmesan.');
+  assert.equal(cook.v, 2);
+
+  // A revision that isn't better is ignored; nothing complete needs a second call.
+  prompts.length = 0;
+  drafts[1] = { prep: [], steps: [{ text: 'Serve.' }] };
+  const kept = await generateCook(gemini, recipe, ['Cook pasta.', 'Toss.']);
+  assert.equal(kept.steps[0].text, 'Cook {{8 oz}} pasta.');
 });

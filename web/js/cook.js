@@ -4,7 +4,7 @@
 // number of servings without asking Gemini again.
 import { S } from './gemini.js';
 
-export const COOK_VERSION = 1;
+export const COOK_VERSION = 2;
 
 const SYSTEM = `You rewrite a recipe's original method as clear, easy steps for someone cooking from a phone.
 Rules:
@@ -12,6 +12,7 @@ Rules:
 - Keep every temperature, time and amount exactly as the original gives it: same numbers, same units, no conversions.
 - One action per step, in the original order. Short, plain sentences that start with a verb. Split long steps; don't merge separate actions.
 - Wrap each ingredient amount in double braces, as the original gives it for the original yield, for example "Whisk in {{2 cups}} chicken broth" or "Add {{1 (15 oz) can}} black beans". Put the unit inside the braces. Only ingredient amounts: never temperatures, times or pan sizes.
+- Name every ingredient from the list in the prep or steps where the original uses it, the first time with its amount in braces. When the original says "add the remaining ingredients", "the spices" or similar, name each one.
 - If a step uses all of an ingredient at once but doesn't say how much, add the amount from the ingredient list in braces.
 - prep: what to do before starting, taken from the original: preheating, preparing pans, and simple chopping or measuring the steps rely on. Keep those out of the steps, unless the original does them partway through.
 - timerMinutes: when a step involves waiting (bake, simmer, roast, rest, chill, marinate, rise), the time in minutes; for a range, the lower end. timerLabel: 1-3 words for that timer, like "Simmer sauce". Otherwise both null.`;
@@ -30,28 +31,84 @@ export async function generateCook(gemini, recipe, instructions, { now = new Dat
   if (!instructions?.length) throw new Error('This recipe page has no steps to work from.');
   const yieldText = recipe.yieldText || (recipe.servings ? `${recipe.servings} servings` : 'not stated');
   const prompt = `Recipe: ${recipe.name}\nYield: ${yieldText}\n\nIngredients:\n${recipe.ingredients.map((i) => `- ${i}`).join('\n')}\n\nOriginal steps:\n${instructions.map((s, i) => `${i + 1}. ${s}`).join('\n')}`;
-  const out = await gemini.json(prompt, SCHEMA, { system: SYSTEM, temperature: 0.1 });
-  const steps = (out.steps || [])
+  let cook = toCook(await gemini.json(prompt, SCHEMA, { system: SYSTEM, temperature: 0.1 }));
+  if (!cook) throw new Error('Gemini did not return any steps.');
+
+  // Gemini sometimes drops an ingredient. Point out which and ask once for a
+  // revision; anything still missing is flagged on the Cook screen.
+  const left = missingIngredients(recipe.ingredients, cook);
+  if (left.length) {
+    const draft = `Before you start:\n${cook.prep.map((p) => `- ${p}`).join('\n') || '- (nothing)'}\n\nSteps:\n${cook.steps.map((st, i) => `${i + 1}. ${st.text}${st.timerMinutes ? ` [timer: ${st.timerMinutes} min, ${st.timerLabel}]` : ''}`).join('\n')}`;
+    const fix = `${prompt}\n\nYour draft:\n${draft}\n\nThese ingredients from the list aren't named in the draft:\n${left.map((i) => `- ${i}`).join('\n')}\n\nRewrite the draft so each of them is named where the original uses it, the first time with its amount in braces. Keep everything else, and follow the same rules. If the original never uses one of them, leave it out.`;
+    try {
+      const revised = toCook(await gemini.json(fix, SCHEMA, { system: SYSTEM, temperature: 0.1 }));
+      if (revised && missingIngredients(recipe.ingredients, revised).length < left.length) cook = revised;
+    } catch { /* keep the first draft; the Cook screen flags what's missing */ }
+  }
+
+  Object.assign(cook, { v: COOK_VERSION, warnings: [], model: gemini.model || null, generatedAt: now.toISOString() });
+  const missing = missingTemperatures(instructions, cook);
+  if (missing.length) {
+    cook.warnings.push(`The original mentions ${missing.join(', ')}, which isn't in these steps. Check the original before cooking.`);
+  }
+  return cook;
+}
+
+function toCook(out) {
+  const steps = (out?.steps || [])
     .map((s) => ({
       text: String(s.text || '').trim(),
       timerMinutes: Number(s.timerMinutes) > 0 ? Math.round(Number(s.timerMinutes) * 10) / 10 : null,
       timerLabel: Number(s.timerMinutes) > 0 ? String(s.timerLabel || '').trim().slice(0, 40) || 'Timer' : null,
     }))
     .filter((s) => s.text);
-  if (!steps.length) throw new Error('Gemini did not return any steps.');
-  const cook = {
-    v: COOK_VERSION,
-    prep: (out.prep || []).map((p) => String(p).trim()).filter(Boolean),
-    steps,
-    warnings: [],
-    model: gemini.model || null,
-    generatedAt: now.toISOString(),
+  if (!steps.length) return null;
+  return { prep: (out.prep || []).map((p) => String(p).trim()).filter(Boolean), steps };
+}
+
+// ---- ingredient check
+
+// Words that describe an ingredient rather than name it ("2 large fresh
+// boneless chicken thighs, diced" is "chicken thighs").
+const IGNORE = new Set(`cup cups tbsp tbs tablespoon tablespoons tsp teaspoon teaspoons pound pounds lbs ounce ounces fl gram grams kg ml liter liters litre quart quarts pint pints gallon
+  can cans jar jars package packages pkg bag bags box boxes bottle bottles container stick sticks slice slices piece pieces clove cloves head heads bunch bunches sprig sprigs stalk stalks
+  pinch pinches dash dashes handful handfuls inch inches large small medium whole half
+  and the for with into about plus more few some each other such like taste needed optional divided garnish serving servings room temperature
+  fresh freshly chopped diced minced sliced grated shredded ground crushed dried peeled seeded cored halved quartered trimmed rinsed drained packed sifted
+  finely roughly coarsely thinly thick thin extra virgin boneless skinless kosher unsalted salted low sodium reduced fat lean cooked uncooked raw frozen thawed
+  softened melted cold warm hot hard soft ripe good quality store bought homemade plain organic all purpose`.split(/\s+/));
+
+const stem = (w) => {
+  if (w.length > 4 && w.endsWith('ies')) return `${w.slice(0, -3)}y`;
+  if (w.length > 4 && /(?:ches|shes|xes|oes)$/.test(w)) return w.slice(0, -2);
+  if (w.length > 3 && w.endsWith('s') && !w.endsWith('ss')) return w.slice(0, -1);
+  return w;
+};
+const wordsOf = (text) => text.toLowerCase().replace(/[^a-z]+/g, ' ').split(' ').filter((w) => w.length >= 3).map(stem);
+
+// "Salt and pepper, to taste" -> [[[salt]], [[pepper]]]: every part must be named;
+// "butter or margarine" -> [[[butter], [margarine]]]: any alternative will do.
+function namesOf(line) {
+  const core = line.toLowerCase().replace(/\([^)]*\)/g, ' ').split(/,|;|\s[-–—]\s/)[0];
+  return core.split(/\band\b|&/)
+    .map((part) => part.split(/\bor\b|\//).map((alt) => wordsOf(alt).filter((w) => !IGNORE.has(w))).filter((alt) => alt.length))
+    .filter((alts) => alts.length);
+}
+
+// Ingredient lines the prep and steps never name. A name counts when a word
+// only that ingredient has appears ("broccoli" for broccoli florets, "sesame"
+// for sesame oil next to olive oil); if all its words are shared with other
+// ingredients, all of them must appear.
+export function missingIngredients(ingredients, cook) {
+  const said = new Set(wordsOf([...cook.prep, ...cook.steps.map((s) => s.text)].join(' ')));
+  const lines = ingredients.filter((line) => !/:\s*$/.test(line)).map((line) => ({ line, parts: namesOf(line) }));
+  const usedBy = new Map(); // word -> how many ingredient lines have it
+  for (const { parts } of lines) for (const w of new Set(parts.flat(2))) usedBy.set(w, (usedBy.get(w) || 0) + 1);
+  const named = (alt) => {
+    const own = alt.filter((w) => usedBy.get(w) === 1);
+    return own.length ? own.some((w) => said.has(w)) : alt.every((w) => said.has(w));
   };
-  const missing = missingTemperatures(instructions, cook);
-  if (missing.length) {
-    cook.warnings.push(`The original mentions ${missing.join(', ')}, which isn't in these steps. Check the original before cooking.`);
-  }
-  return cook;
+  return lines.filter(({ parts }) => parts.length && !parts.every((alts) => alts.some(named))).map(({ line }) => line);
 }
 
 // Oven and oil temperatures in the original that the rewrite left out.

@@ -2,7 +2,7 @@
 // ingredients and the steps, scaled to the chosen servings. Tap a line to
 // tick it off; steps with a waiting time get a timer. The screen stays on
 // while it's open, and the phone's Back button closes it.
-import { scaleAmount, splitAmounts } from './cook.js';
+import { missingIngredients, scaleAmount, splitAmounts } from './cook.js';
 import { icon } from './icons.js';
 import * as storage from './storage.js';
 import { escapeHtml as h } from './util.js';
@@ -44,6 +44,8 @@ export function createCookView({ root, timersEl, toast }) {
     }
     const { prep, steps } = current.progress;
     const next = cook.steps.findIndex((_, i) => !steps.includes(i));
+    // Checked live, so steps written before this check get flagged too.
+    const missing = missingIngredients(recipe.ingredients, cook);
     const servings = recipe.servings
       ? `<div class="cook-servings"><span class="muted">For</span>
           <button class="small" data-cook="servings" data-delta="-1" aria-label="Fewer">−</button>
@@ -53,6 +55,7 @@ export function createCookView({ root, timersEl, toast }) {
       : recipe.yieldText ? `<div class="cook-servings muted">Makes ${h(recipe.yieldText)}</div>` : '';
     root.innerHTML = `<div class="cook-sheet">${head}${servings}
       ${cook.warnings.map((w) => `<p class="notice">${h(w)}</p>`).join('')}
+      ${missing.length ? `<p class="notice">Not named in these steps: ${missing.map((i) => h(scaleAmount(i, factor()))).join('; ')}. Check the original for where ${missing.length === 1 ? 'it goes' : 'they go'}, or tap Regenerate cook steps.</p>` : ''}
       ${cook.prep.length ? `<h3>Before you start</h3>
         <ul class="cook-list">${cook.prep.map((p, i) => `<li class="cook-check ${prep.includes(i) ? 'done' : ''}" data-cook="prep" data-i="${i}">
           <span class="tick">${icon('check')}</span><span>${withAmounts(p)}</span></li>`).join('')}</ul>` : ''}
