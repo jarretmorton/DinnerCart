@@ -266,7 +266,7 @@ function renderCart() {
   }
   picked.innerHTML = `
     <div class="card">
-      <div class="section-title" style="margin-top:0"><h2>Picked recipes</h2><button class="small" data-action="clear-cart">Clear cart</button></div>
+      <div class="section-title" style="margin-top:0"><h2>Picked recipes</h2><button class="small" data-action="clear-cart">Clear picks</button></div>
       ${state.selected.map((s) => `
         <div class="picked-row">
           <div class="name"><a href="${h(s.recipe.url)}" target="_blank" rel="noopener">${h(s.recipe.name)}</a>
