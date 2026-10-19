@@ -65,19 +65,20 @@ export function createCookView({ root, timersEl, toast }) {
             ${s.timerMinutes ? `<button class="small timer-btn" data-cook="timer" data-i="${i}">${icon('clock')} ${formatMinutes(s.timerMinutes)}</button>` : ''}</div>
         </li>`).join('')}</ol>
       <div class="cook-foot">
-        <button class="small" data-cook="reset">Start over</button>
-        ${original('Open original recipe')}
+        <button class="small" data-cook="reset">Start cook over</button>
+        <button class="small" data-cook="regenerate">${icon('sparkle')} Regenerate steps</button>
       </div>
     </div>`;
   }
 
-  async function load() {
+  // fresh: write new steps instead of using saved ones.
+  async function load({ fresh = false } = {}) {
     current.cook = null;
     current.error = null;
     render();
     const target = current;
     try {
-      const cook = await target.load();
+      const cook = await target.load({ fresh });
       if (current !== target) return;
       current.cook = cook;
     } catch (err) {
@@ -206,8 +207,13 @@ export function createCookView({ root, timersEl, toast }) {
         return toast(`Timer started: ${formatMinutes(current.cook.steps[i].timerMinutes)}`);
       case 'prep': toggle(progress.prep); break;
       case 'step': toggle(progress.steps); break;
+      case 'regenerate':
+        if (!confirm('Write the steps again with Gemini? The new steps replace these.')) return;
+        current.progress = { prep: [], steps: [] };
+        storage.saveProgress(current.recipe.url, current.progress);
+        return load({ fresh: true });
       case 'reset':
-        if (!confirm('Untick everything and start over?')) return;
+        if (!confirm('Untick everything and start the cook over?')) return;
         progress.prep = [];
         progress.steps = [];
         break;

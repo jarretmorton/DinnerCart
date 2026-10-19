@@ -502,13 +502,14 @@ function openCook(url) {
   if (!recipe.url) return;
   const view = location.hash.slice(1);
   const servings = pick?.servings || (view === 'find' && state.criteria?.servings) || prefs.servings || recipe.servings;
-  cookView.open({ recipe, servings, load: () => loadCook(recipe) });
+  cookView.open({ recipe, servings, load: ({ fresh }) => loadCook(recipe, { fresh }) });
 }
 
-async function loadCook(recipe) {
+// fresh: write new steps (Regenerate) instead of using saved ones.
+async function loadCook(recipe, { fresh = false } = {}) {
   const saved = savedEntry(recipe.url);
-  if (saved?.cook) return saved.cook;
-  let cook = storage.loadCook(recipe.url);
+  if (saved?.cook && !fresh) return saved.cook;
+  let cook = fresh ? null : storage.loadCook(recipe.url);
   if (!cook) {
     if (!configured()) throw new Error('finish Config first.');
     let { instructions } = recipe;
@@ -519,7 +520,9 @@ async function loadCook(recipe) {
       instructions = fresh?.instructions || [];
     }
     if (!instructions.length) throw new NoStepsError();
-    cook = await generateCook(gemini(), recipe, instructions);
+    // Always the strong model for Cook (accuracy matters more than speed);
+    // it falls back to the light one only if the strong one is rate limited.
+    cook = await generateCook(createGemini({ apiKey: settings.geminiKey, model: createModelSwitch() }), recipe, instructions);
     storage.saveCook(recipe.url, cook);
   }
   if (saved) {
