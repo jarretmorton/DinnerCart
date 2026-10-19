@@ -260,7 +260,7 @@ function renderCart() {
   const cart = state.cart;
   const storeName = prefs.store?.name;
   if (!state.selected.length && !cart) {
-    picked.innerHTML = `<div class="card"><h2>Nothing picked yet</h2><p class="muted">Pick recipes on <a href="#find">Find</a> or from your saved <a href="#recipes">Recipes</a>.</p>${fmLinks()}</div>`;
+    picked.innerHTML = `<div class="card"><h2>Nothing picked yet</h2><p class="muted">Pick recipes from your <a href="#find">Search</a> or <a href="#recipes">Saves</a></p>${fmLinks()}</div>`;
     $('#cart').innerHTML = '';
     return;
   }
