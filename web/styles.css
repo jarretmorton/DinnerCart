@@ -74,8 +74,8 @@ h3 { font-size: 1.05rem; font-weight: 600; margin: 0 0 4px; }
 .brand-mark { width: 1.35em; height: 1.35em; border-radius: 22%; vertical-align: -0.3em; flex-shrink: 0; align-self: center; }
 .version { font-family: var(--sans); font-weight: 400; font-size: 0.72rem; color: var(--muted); }
 nav { display: flex; gap: 4px; }
-nav a { position: relative; display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 999px; text-decoration: none; color: var(--muted); }
-.nav-icon { display: none; }
+nav a { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; text-decoration: none; color: var(--muted); }
+.nav-icon { display: inline-flex; }
 nav a.active { background: var(--basil-soft); color: var(--basil); font-weight: 600; }
 /* Count floats over the tab's top-right corner so it doesn't widen the tab. */
 .badge {
@@ -258,18 +258,22 @@ body:not(.cook-open) .timers { bottom: 72px; }
 .stores label { flex-direction: row; align-items: center; gap: 8px; color: var(--text); padding: 6px 0; }
 .stores input { width: auto; }
 
-@media (max-width: 520px) {
-  main { padding: 12px; }
-  .top { flex-wrap: nowrap; padding: 8px 12px; }
-  .brand { display: flex; align-items: baseline; gap: 4px; white-space: nowrap; min-width: 0; font-size: 1.2rem; }
-  /* Version tucks in small next to the name so the title never gets cut off. */
-  .version { font-size: 0.56rem; letter-spacing: -0.01em; opacity: 0.9; }
+/* Not enough room for icons and names on one row: icons only. */
+@media (max-width: 720px) {
+  .top { flex-wrap: nowrap; }
   nav { gap: 0; flex-shrink: 0; }
   /* Fixed px so the icons don't grow with the phone's text-size setting; the title gets that room. */
   nav a { padding: 7px; font-size: 21px; line-height: 1; }
-  .nav-icon { display: inline-flex; }
   .nav-label { display: none; }
   nav .badge { top: -2px; right: -2px; font-size: 11px; line-height: 16px; min-width: 16px; }
+}
+
+@media (max-width: 520px) {
+  main { padding: 12px; }
+  .top { padding: 8px 12px; }
+  .brand { display: flex; align-items: baseline; gap: 4px; white-space: nowrap; min-width: 0; font-size: 1.2rem; }
+  /* Version tucks in small next to the name so the title never gets cut off. */
+  .version { font-size: 0.56rem; letter-spacing: -0.01em; opacity: 0.9; }
   .item { grid-template-columns: 44px 1fr; }
   .item img, .item .noimg { width: 44px; height: 44px; }
   .item .side { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; align-items: center; }
