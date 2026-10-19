@@ -1,6 +1,6 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { lastDirectProblem, lastSearchRoute, productSearcher, resetDirectSearch } from '../web/js/kroger.js';
+import { findStores, lastDirectProblem, lastSearchRoute, productSearcher, resetDirectSearch } from '../web/js/kroger.js';
 
 const product = (upc, description) => ({ productId: upc, upc, description, items: [{ size: '1 each', price: { regular: 1.5 } }] });
 const jsonRes = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -92,4 +92,31 @@ test('relay without the token route: everything goes through the relay', async (
   const relay = { ...fakeRelay(), krogerToken: async () => { throw new Error('404'); } };
   const out = await productSearcher(relay, '701', { fetchImpl: async () => { throw new Error('should not call'); } })(['milk']);
   assert.equal(out.milk[0].description, 'relay milk');
+});
+
+const location = (locationId, name, chain = 'FRED') => ({ locationId, name, chain, address: { addressLine1: '1 Main St', city: 'Portland', state: 'OR', zipCode: '97214' } });
+
+test('finds stores directly from the phone, keeping the Fred Meyer ones', async () => {
+  const relay = { ...fakeRelay(), locations: async () => { throw new Error('relay should not be used'); } };
+  const seen = [];
+  const fetchImpl = async (url, init) => {
+    seen.push({ url: new URL(url), init });
+    return jsonRes({ data: [location('1', 'Fred Meyer Hawthorne'), location('2', 'QFC Broadway', 'QFC'), location('3', 'Fred Meyer Fuel Center')] });
+  };
+  const stores = await findStores(relay, '97214', { fetchImpl });
+  assert.deepEqual(stores.map((s) => s.locationId), ['1']);
+  assert.equal(stores[0].address, '1 Main St, Portland, OR, 97214');
+  assert.equal(seen[0].url.pathname, '/v1/locations');
+  assert.equal(seen[0].url.searchParams.get('filter.zipCode.near'), '97214');
+  assert.equal(seen[0].url.searchParams.get('access_token'), 't1');
+  assert.equal(seen[0].init, undefined, 'no headers, so no CORS preflight');
+});
+
+test('store lookup falls back to the relay, and reports both failures', async () => {
+  const firewall = async () => new Response('<html>Access Denied</html>', { status: 403, headers: { 'content-type': 'text/html' } });
+  const relay = { ...fakeRelay(), locations: async () => ({ locations: [{ locationId: '9', name: 'Fred Meyer via relay' }] }) };
+  assert.equal((await findStores(relay, '97214', { fetchImpl: firewall }))[0].locationId, '9');
+  const down = { ...fakeRelay(), locations: async () => { throw new Error('Kroger /locations was blocked by Kroger\'s firewall (403 Access Denied)'); } };
+  await assert.rejects(findStores(down, '97214', { fetchImpl: firewall }), /From this device: Kroger returned 403\. Through the relay: .*firewall/);
+  await assert.rejects(findStores(relay, '972', { fetchImpl: firewall }), /5-digit/);
 });

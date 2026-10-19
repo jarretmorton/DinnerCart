@@ -2,7 +2,7 @@
 import { generateCook } from './cook.js';
 import { NoStepsError, createCookView } from './cook-view.js';
 import { LIGHT_MODEL, createGemini, createModelSwitch } from './gemini.js';
-import { lastDirectProblem, lastSearchRoute, productSearcher, resetDirectSearch } from './kroger.js';
+import { findStores as findStoresNearby, lastDirectProblem, lastSearchRoute, productSearcher, resetDirectSearch } from './kroger.js';
 import { createRelay } from './relay.js';
 import { findRecipes, scaleFor } from './recipes.js';
 import { MAX_CANDIDATES, estimateTotal, heuristicPick, resolveIngredients, setPackages } from './resolver.js';
@@ -719,7 +719,7 @@ async function findStores() {
   const el = $('#store-list');
   return guarded(null, async () => {
     el.innerHTML = '<p class="muted">Searching…</p>';
-    const { locations } = await relay().locations(zip);
+    const locations = await findStoresNearby(relay(), zip);
     el.innerHTML = locations.length
       ? `<div class="stores">${locations.map((l) => `<label><input type="radio" name="store" value="${h(l.locationId)}" ${prefs.store?.locationId === l.locationId ? 'checked' : ''} data-store='${h(JSON.stringify(l))}'> <span><strong>${h(l.name)}</strong><br><span class="muted small-text">${h(l.address)}</span></span></label>`).join('')}</div>`
       : '<p class="muted">No Kroger-family stores within 25 miles of that ZIP.</p>';

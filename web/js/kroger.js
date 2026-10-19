@@ -5,7 +5,7 @@
 // is the fallback whenever a direct search fails. The token goes in the web
 // address: an Authorization header would need a CORS preflight, which
 // Kroger refuses, while a plain GET needs none.
-import { KROGER_API, cleanTerm, normalizeProduct } from './kroger-shared.js';
+import { KROGER_API, cleanTerm, isZip, locationsQuery, normalizeProduct, pickLocations } from './kroger-shared.js';
 import { mapLimit } from './util.js';
 
 let token = null;
@@ -35,14 +35,37 @@ export function relaySearcher(relay, locationId) {
   };
 }
 
+async function tokenFrom(relay, force = false) {
+  if (force || !token || token.expires_at < Date.now() + 60_000) token = await relay.krogerToken();
+  return token.access_token;
+}
+
+// Nearby stores, from the phone first (the firewall blocks the relay's
+// store lookups too), then through the relay. Fails with both reasons.
+export async function findStores(relay, zip, { fetchImpl = globalThis.fetch.bind(globalThis) } = {}) {
+  if (!isZip(zip)) throw new Error('Enter a 5-digit ZIP code.');
+  let direct;
+  try {
+    const url = `${KROGER_API}/locations?${locationsQuery(zip)}`;
+    const send = async (force) => fetchImpl(`${url}&access_token=${encodeURIComponent(await tokenFrom(relay, force))}`);
+    let res = await send(false);
+    if (res.status === 401) res = await send(true);
+    if (res.ok) return pickLocations(await res.json());
+    direct = `Kroger returned ${res.status}`;
+  } catch (err) {
+    direct = err instanceof TypeError ? `couldn't reach Kroger (${err.message})` : err.message;
+  }
+  try {
+    return (await relay.locations(zip)).locations;
+  } catch (err) {
+    throw new Error(`Couldn't look up stores. From this device: ${direct}. Through the relay: ${err.message}`);
+  }
+}
+
 // Direct-first search with per-term fallback to the relay.
 export function productSearcher(relay, locationId, { fetchImpl = globalThis.fetch.bind(globalThis), concurrency = 3 } = {}) {
   const viaRelay = relaySearcher(relay, locationId);
-
-  async function getToken(force = false) {
-    if (force || !token || token.expires_at < Date.now() + 60_000) token = await relay.krogerToken();
-    return token.access_token;
-  }
+  const getToken = (force) => tokenFrom(relay, force);
 
   async function searchOne(term) {
     const t = cleanTerm(term);

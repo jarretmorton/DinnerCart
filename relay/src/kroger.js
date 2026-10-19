@@ -4,7 +4,7 @@ import { HttpError, fetchWithTimeout, randomHex } from './http.js';
 import { del, getJson, putJson, urlKey } from './store.js';
 import { isAllowedReturnUrl } from './auth.js';
 // Shared with the browser, which searches Kroger directly when it can.
-import { cleanTerm, normalizeProduct } from '../../web/js/kroger-shared.js';
+import { cleanTerm, isZip, locationsQuery, normalizeProduct, pickLocations } from '../../web/js/kroger-shared.js';
 
 export { cleanTerm, normalizeProduct };
 
@@ -261,23 +261,11 @@ export async function searchProductsMany(env, terms, locationId, opts = {}) {
   return { results, errors };
 }
 
-// Kroger's chain codes don't match brand names ("FRED MEYER" finds nothing),
-// so search every Kroger-family store nearby and keep the Fred Meyer ones by
-// name/chain. If none are nearby, return everything so the user still has a choice.
+// Nearby Fred Meyer stores (see pickLocations). The app looks them up from
+// the phone first; this is its fallback.
 export async function findLocations(env, zip, { brand = /fred/i, fetchImpl = fetch } = {}) {
-  if (!/^\d{5}$/.test(String(zip || ''))) throw new HttpError(400, 'bad_zip', 'Enter a 5-digit ZIP code.');
-  const params = new URLSearchParams({ 'filter.zipCode.near': zip, 'filter.limit': '50', 'filter.radiusInMiles': '25' });
-  const data = await krogerGet(env, `/locations?${params}`, fetchImpl);
-  const all = (data.data || [])
-    .filter((l) => !/fuel|gas station/i.test(l.name || ''))
-    .map((l) => ({
-      locationId: l.locationId,
-      chain: l.chain,
-      name: l.name,
-      address: [l.address?.addressLine1, l.address?.city, l.address?.state, l.address?.zipCode].filter(Boolean).join(', '),
-    }));
-  const matching = all.filter((l) => brand.test(`${l.chain} ${l.name}`));
-  return (matching.length ? matching : all).slice(0, 15);
+  if (!isZip(zip)) throw new HttpError(400, 'bad_zip', 'Enter a 5-digit ZIP code.');
+  return pickLocations(await krogerGet(env, `/locations?${locationsQuery(zip)}`, fetchImpl), brand);
 }
 
 export async function addToCart(env, items, modality = 'PICKUP', fetchImpl = fetch) {

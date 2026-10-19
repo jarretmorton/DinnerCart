@@ -124,7 +124,6 @@ fieldset input { width: auto; }
 .check-field { flex-direction: row; align-items: center; gap: 8px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--field); color: var(--text); cursor: pointer; font-size: 1rem; user-select: none; }
 .check-field input { width: 18px; height: 18px; margin: 0; padding: 0; accent-color: var(--basil); cursor: pointer; }
 .check-field input:focus { box-shadow: none; }
-.check-field:has(input:checked) { font-weight: 600; }
 .check-field:has(input:focus-visible) { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
 button {

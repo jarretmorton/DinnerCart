@@ -27,6 +27,26 @@ export function normalizeProduct(p) {
   };
 }
 
+// Store lookup: the query for Kroger's /locations, and the stores to offer.
+// Kroger's chain codes don't match brand names ("FRED MEYER" finds nothing),
+// so search every Kroger-family store nearby and keep the Fred Meyer ones by
+// name/chain. If none are nearby, return everything so the user still has a choice.
+export const isZip = (zip) => /^\d{5}$/.test(String(zip || ''));
+export const locationsQuery = (zip) => new URLSearchParams({ 'filter.zipCode.near': zip, 'filter.limit': '50', 'filter.radiusInMiles': '25' });
+
+export function pickLocations(data, brand = /fred/i) {
+  const all = (data?.data || [])
+    .filter((l) => !/fuel|gas station/i.test(l.name || ''))
+    .map((l) => ({
+      locationId: l.locationId,
+      chain: l.chain,
+      name: l.name,
+      address: [l.address?.addressLine1, l.address?.city, l.address?.state, l.address?.zipCode].filter(Boolean).join(', '),
+    }));
+  const matching = all.filter((l) => brand.test(`${l.chain} ${l.name}`));
+  return (matching.length ? matching : all).slice(0, 15);
+}
+
 // Kroger requires 3+ characters and at most 8 words.
 export function cleanTerm(term) {
   return String(term || '').replace(/[^\p{L}\p{N}\s&'-]/gu, ' ').split(/\s+/).filter(Boolean).slice(0, 8).join(' ');
