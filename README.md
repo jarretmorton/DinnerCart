@@ -14,6 +14,15 @@ Want it for your household? Each household runs its own copy: its own site,
 relay, Fred Meyer login, shared recipes and password. It's all free tiers.
 See [Run your own DinnerCart](#run-your-own-dinnercart).
 
+<p>
+  <img width="250" alt="Find: recipe results with ratings, time and a reason each one fits" src="docs/screenshots/find.png"/>
+  <img width="250" alt="Cart: shopping list matched to Fred Meyer products, ready to send" src="docs/screenshots/cart.png"/>
+  <img width="250" alt="Find in night mode" src="docs/screenshots/find-night.png"/>
+</p>
+
+<sub>Recipe results, the matched shopping list, and night mode. Sample data;
+the food pictures are illustrations standing in for recipe and product photos.</sub>
+
 ```
  Browser (GitHub Pages, /web)                     Cloudflare Worker (/relay)
  ───────────────────────────                      ──────────────────────────
