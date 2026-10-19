@@ -1,5 +1,7 @@
 # DinnerCart
 
+<img width="120" height="120" alt="DinnerCart app icon" src="web/icon.svg"/>
+
 A personal web app for our household: describe what you feel like eating, get
 free recipes from the web, pick a few, and DinnerCart matches the ingredients
 to Fred Meyer products and adds them to our shared Fred Meyer cart. Checkout
