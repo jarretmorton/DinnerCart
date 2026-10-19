@@ -9,7 +9,7 @@ import { MAX_CANDIDATES, estimateTotal, heuristicPick, resolveIngredients, setPa
 import * as storage from './storage.js';
 import { summarizeNeeds } from './units.js';
 import { escapeHtml as h, money } from './util.js';
-import { IDEAS, LEAVE_OUT_EXAMPLES, generateIdeas, rotatePlaceholder, todayKey } from './suggestions.js';
+import { IDEAS, generateIdeas, rotatePlaceholder, todayKey } from './suggestions.js';
 import { hydrateIcons, icon } from './icons.js';
 import { groupByRecency } from './library.js';
 import { VERSION } from './version.js';
@@ -177,7 +177,6 @@ function readCriteria(form) {
     maxMinutes: Number(f.get('maxMinutes')) || null,
     servings: Number(f.get('servings')) || null,
     easy: f.get('easy') === 'on',
-    exclude: list(f.get('exclude')),
   };
 }
 
@@ -192,14 +191,13 @@ function applySearchDefaults() {
   if (time.selectedIndex < 0) time.value = String(storage.DEFAULT_MAX_MINUTES);
   form.elements.servings.value = prefs.servings || storage.DEFAULT_SERVINGS;
   form.elements.easy.checked = Boolean(prefs.easy);
+  form.querySelector('.pill-toggle').title = `Up to ${easyLimits().maxIngredients} ingredients (not counting pantry staples) and ${easyLimits().maxSteps} steps`;
 }
 
-// "What sounds good?" starts empty on every load; only the leave-out list
-// carries over from the last search.
-function fillCriteria(form, c) {
-  if (!c) return;
-  form.elements.exclude.value = (c.exclude || []).join(', ');
-}
+const easyLimits = () => ({
+  maxIngredients: prefs.easyMaxIngredients || storage.DEFAULT_EASY_MAX_INGREDIENTS,
+  maxSteps: prefs.easyMaxSteps || storage.DEFAULT_EASY_MAX_STEPS,
+});
 
 async function runSearch(event) {
   event.preventDefault();
@@ -210,7 +208,15 @@ async function runSearch(event) {
     return;
   }
   const recommend = event.submitter?.id === 'recommend-btn';
-  const criteria = { ...readCriteria(event.target), minRating: prefs.minRating ?? storage.DEFAULT_MIN_RATING, pantry: prefs.pantry || [] };
+  // What to leave out, the pantry and the Easy limits come from Config.
+  const criteria = {
+    ...readCriteria(event.target),
+    exclude: prefs.leaveOut || [],
+    minRating: prefs.minRating ?? storage.DEFAULT_MIN_RATING,
+    pantry: prefs.pantry || [],
+    easyMaxIngredients: easyLimits().maxIngredients,
+    easyMaxSteps: easyLimits().maxSteps,
+  };
   if (!recommend && !criteria.wants) {
     setStatus(status, 'Tell me what sounds good, or try Recommend.', 'error');
     return;
@@ -550,6 +556,8 @@ function renderSettings() {
   pf.elements.maxMinutes.value = prefs.maxMinutes ? String(prefs.maxMinutes) : '';
   pf.elements.servings.value = prefs.servings || storage.DEFAULT_SERVINGS;
   pf.elements.easy.checked = Boolean(prefs.easy);
+  pf.elements.easyMaxIngredients.value = easyLimits().maxIngredients;
+  pf.elements.easyMaxSteps.value = easyLimits().maxSteps;
   $('#store-current').innerHTML = prefs.store
     ? `Store: <strong>${h(prefs.store.name)}</strong> <span class="muted small-text">${h(prefs.store.address || '')} · #${h(prefs.store.locationId)}</span>`
     : '<span class="notice">No store chosen yet.</span>';
@@ -790,6 +798,8 @@ $('#prefs-form').addEventListener('submit', (e) => {
       maxMinutes: Number(f.maxMinutes.value) || null,
       servings: Math.min(20, Math.max(1, Math.round(Number(f.servings.value) || storage.DEFAULT_SERVINGS))),
       easy: f.easy.checked,
+      easyMaxIngredients: Math.min(50, Math.max(1, Math.round(Number(f.easyMaxIngredients.value) || storage.DEFAULT_EASY_MAX_INGREDIENTS))),
+      easyMaxSteps: Math.min(50, Math.max(1, Math.round(Number(f.easyMaxSteps.value) || storage.DEFAULT_EASY_MAX_STEPS))),
     });
     applySearchDefaults();
     toast('Household settings saved');
@@ -831,12 +841,10 @@ window.dcImageFallback = (img) => {
   img.replaceWith(div);
 };
 renderModelToggle();
-fillCriteria($('#criteria'), state.criteria);
 applySearchDefaults();
 $('#criteria').addEventListener('change', () => { findFormTouched = true; });
 
-// Rotating suggestions. Tapping a field's label fills in what it suggests:
-// the idea showing for "What sounds good?", the household list for "What to leave out?".
+// Rotating "What sounds good?" ideas; tapping the label fills in the one showing.
 // Gemini writes a fresh batch once a day for the household (light model,
 // so it doesn't use up the strong model's limit). The first device to open
 // the app that day generates it and shares it via the relay's prefs; the
@@ -869,16 +877,11 @@ async function refreshDailyIdeas() {
     console.warn('daily ideas failed; using built-in list', err);
   }
 }
-const leaveOutList = () => (prefs.leaveOut?.length ? prefs.leaveOut : LEAVE_OUT_EXAMPLES);
-const leaveOutIdeas = rotatePlaceholder($('#criteria').elements.exclude, leaveOutList);
 document.querySelectorAll('[data-suggest]').forEach((label) => label.addEventListener('click', (e) => {
   e.preventDefault();
-  const form = $('#criteria');
-  const field = label.dataset.suggest;
-  form.elements[field].value = field === 'wants'
-    ? ideas.current()
-    : (prefs.leaveOut?.length ? prefs.leaveOut.join(', ') : leaveOutIdeas.current());
-  form.elements[field].focus();
+  const input = $('#criteria').elements[label.dataset.suggest];
+  input.value = ideas.current();
+  input.focus();
 }));
 applySetupLink();
 handleOAuthReturn();

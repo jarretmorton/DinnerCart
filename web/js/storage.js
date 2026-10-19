@@ -38,9 +38,12 @@ export const saveState = (s) => write(STATE_KEY, s);
 export const DEFAULT_MIN_RATING = 4;
 export const DEFAULT_MAX_MINUTES = 30;
 export const DEFAULT_SERVINGS = 4;
+export const DEFAULT_EASY_MAX_INGREDIENTS = 10;
+export const DEFAULT_EASY_MAX_STEPS = 8;
 export const loadPrefs = () => ({
   store: null, pantry: DEFAULT_PANTRY, modality: 'PICKUP',
-  minRating: DEFAULT_MIN_RATING, maxMinutes: DEFAULT_MAX_MINUTES, servings: DEFAULT_SERVINGS, easy: false, leaveOut: [],
+  minRating: DEFAULT_MIN_RATING, maxMinutes: DEFAULT_MAX_MINUTES, servings: DEFAULT_SERVINGS, easy: false,
+  easyMaxIngredients: DEFAULT_EASY_MAX_INGREDIENTS, easyMaxSteps: DEFAULT_EASY_MAX_STEPS, leaveOut: [],
   ...read(PREFS_KEY, {}),
 });
 export const savePrefs = (p) => write(PREFS_KEY, p);

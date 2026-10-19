@@ -61,7 +61,8 @@ export async function fetchRecipes(relay, urls, { concurrency = 6, onEach = () =
   };
 }
 
-// Easy: at most this many ingredients (not counting pantry staples) and steps.
+// Easy: at most this many ingredients (not counting pantry staples) and
+// steps, unless the household set its own limits in Config.
 export const EASY_MAX_INGREDIENTS = 10;
 export const EASY_MAX_STEPS = 8;
 
@@ -82,14 +83,16 @@ export function filterRecipes(recipes, c) {
   const kept = [];
   const rejected = [];
   const seen = new Set();
+  const maxIngredients = c.easyMaxIngredients || EASY_MAX_INGREDIENTS;
+  const maxSteps = c.easyMaxSteps || EASY_MAX_STEPS;
   for (const r of recipes) {
     const key = `${r.name.toLowerCase()}|${r.site}`;
     let reason = null;
     if (seen.has(key)) reason = 'duplicate';
     else if (c.skipUrls?.has(r.url)) reason = 'already in Save';
     else if (c.maxMinutes && r.totalMinutes && r.totalMinutes > c.maxMinutes) reason = `takes ${r.totalMinutes} min`;
-    else if (c.easy && shoppingIngredients(r, c.pantry).length > EASY_MAX_INGREDIENTS) reason = `${shoppingIngredients(r, c.pantry).length} ingredients (Easy: ${EASY_MAX_INGREDIENTS} max)`;
-    else if (c.easy && stepCount(r) > EASY_MAX_STEPS) reason = `${stepCount(r)} steps (Easy: ${EASY_MAX_STEPS} max)`;
+    else if (c.easy && shoppingIngredients(r, c.pantry).length > maxIngredients) reason = `${shoppingIngredients(r, c.pantry).length} ingredients (Easy: ${maxIngredients} max)`;
+    else if (c.easy && stepCount(r) > maxSteps) reason = `${stepCount(r)} steps (Easy: ${maxSteps} max)`;
     else if (c.minRating && r.rating?.value && r.rating.value < c.minRating) reason = `rated ${r.rating.value}`;
     else if (c.exclude?.length) {
       const hit = c.exclude.find((x) => r.ingredients.some((line) => line.toLowerCase().includes(x.toLowerCase())));

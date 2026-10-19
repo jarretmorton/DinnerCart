@@ -244,6 +244,8 @@ test('Easy: ingredient and step limits, pantry staples not counted, query hint',
   assert.deepEqual(kept.map((r) => r.name), ['Ok', 'Unknown steps']);
   assert.deepEqual(rejected.map((r) => r.reason), ['11 ingredients (Easy: 10 max)', '9 steps (Easy: 8 max)']);
   assert.equal(filterRecipes([many, long], { easy: false }).kept.length, 2, 'off: no limits');
+  const custom = filterRecipes([ok, many, long], { easy: true, pantry: ['salt', 'olive oil'], easyMaxIngredients: 8, easyMaxSteps: 12 });
+  assert.deepEqual(custom.rejected.map((r) => r.reason), ['10 ingredients (Easy: 8 max)', '11 ingredients (Easy: 8 max)'], 'household limits from Config');
   assert.match(describeCriteria({ easy: true }), /Easy: few ingredients/);
   let prompt;
   await generateQueries({ json: async (p) => { prompt = p; return { queries: ['easy recipe'] }; } }, { wants: 'tacos', easy: true });

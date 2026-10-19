@@ -50,9 +50,6 @@
           <span class="muted">people</span>
           <label class="pill-toggle" title="Few ingredients, few steps, nothing fussy"><input type="checkbox" name="easy"><span data-icon="bolt"></span> Easy</label>
         </fieldset>
-        <label class="wide"><span class="suggest" data-suggest="exclude" title="Tap to fill in your household list">What to leave out?</span>
-          <input name="exclude" autocomplete="off">
-        </label>
         <div class="wide actions">
           <button type="submit" class="primary" id="search-btn"><span data-icon="search"></span> Search</button>
           <button type="submit" id="recommend-btn" title="Ideas based on your saved recipes, plus anything filled in above"><span data-icon="sparkle"></span> Recommend</button>
@@ -96,7 +93,7 @@
           <legend>Gemini model</legend>
           <div class="segmented" role="radiogroup">
             <label><input type="radio" name="modelTier" value="strong"><span data-icon="anvil"></span> Strong</label>
-            <label><input type="radio" name="modelTier" value="light"><span data-icon="needles"></span> Light</label>
+            <label><input type="radio" name="modelTier" value="light"><span data-icon="feather"></span> Light</label>
           </div>
         </fieldset>
         <p class="wide hint">Each visit starts on Strong. If Strong hits Gemini's rate limit, this switches to Light by itself until you reload. You can also switch it by hand. Takes effect immediately.</p>
@@ -140,6 +137,9 @@
           </select>
         </label>
         <label class="inline-check"><input type="checkbox" name="easy"> Easy by default</label>
+        <label>Easy: most ingredients <input name="easyMaxIngredients" type="number" min="1" max="50"></label>
+        <label>Easy: most steps <input name="easyMaxSteps" type="number" min="1" max="50"></label>
+        <p class="wide hint">Easy skips recipes over these limits. Pantry staples don't count as ingredients.</p>
         <label>Default servings <input name="servings" type="number" min="1" max="20"></label>
         <label>Minimum recipe rating
           <select name="minRating">
@@ -147,7 +147,7 @@
             <option value="4">4★ and up</option><option value="4.5">4.5★ and up</option>
           </select>
         </label>
-        <label class="wide">What to leave out (one per line; tap "What to leave out?" on Search to fill these in)
+        <label class="wide">What to leave out (one per line; every search skips recipes with these)
           <textarea name="leaveOut" rows="4" placeholder="mushrooms&#10;cilantro"></textarea>
         </label>
 

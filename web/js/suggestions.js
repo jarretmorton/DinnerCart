@@ -60,9 +60,6 @@ export async function generateIdeas(gemini, { liked = [], now = new Date() } = {
 // Local calendar day, so the batch refreshes at local midnight.
 export const todayKey = (now = new Date()) => `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-// Used for "What to leave out" when the household list is empty.
-export const LEAVE_OUT_EXAMPLES = ['mushrooms', 'cilantro', 'olives', 'blue cheese', 'shellfish', 'raisins', 'very spicy'];
-
 const shuffle = (list) => {
   const a = [...list];
   for (let i = a.length - 1; i > 0; i--) {
