@@ -10,7 +10,7 @@ export class RelayError extends Error {
 }
 
 export function createRelay({ url, password, fetchImpl = globalThis.fetch.bind(globalThis) }) {
-  if (!url) throw new RelayError('Set the relay URL in Settings.', 0, 'not_configured');
+  if (!url) throw new RelayError('Set the relay URL in Config.', 0, 'not_configured');
   const base = url.replace(/\/+$/, '');
 
   async function call(method, path, body) {

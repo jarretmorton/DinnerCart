@@ -1,4 +1,4 @@
-// Grouping for the Recipes tab.
+// Grouping for the Save tab.
 
 // Most recent of saving or sending to the cart (ISO strings sort by time).
 export const lastActivity = (r) => [r.lastPickedAt, r.savedAt].filter(Boolean).sort().pop() || '';

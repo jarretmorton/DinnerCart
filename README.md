@@ -15,9 +15,9 @@ relay, Fred Meyer login, shared recipes and password. It's all free tiers.
 See [Run your own DinnerCart](#run-your-own-dinnercart).
 
 <p>
-  <img width="250" alt="Find: recipe results with ratings, time and a reason each one fits" src="docs/screenshots/find.png"/>
-  <img width="250" alt="Cart: shopping list matched to Fred Meyer products, ready to send" src="docs/screenshots/cart.png"/>
-  <img width="250" alt="Find in night mode" src="docs/screenshots/find-night.png"/>
+  <img width="250" alt="Search: recipe results with ratings, time and a reason each one fits" src="docs/screenshots/find.png"/>
+  <img width="250" alt="Pick: shopping list matched to Fred Meyer products, ready to send" src="docs/screenshots/cart.png"/>
+  <img width="250" alt="Search in night mode" src="docs/screenshots/find-night.png"/>
 </p>
 
 <sub>Recipe results, the matched shopping list, and night mode. Sample data;
@@ -52,10 +52,10 @@ single-use `state` value.
 | `web/js/app.js` | UI controller: views, events, settings. |
 | `web/js/resolver.js` | Ingredient resolver (normalize → pantry → merge → search → pick → package count). Shared with the eval. |
 | `web/js/units.js` | Unit conversion and Kroger size parsing (`"6 ct / 12 fl oz"`, `"1/2 gal"`…). |
-| `web/js/recipes.js` | Query generation (search and Recommendations), structured filters, Gemini ranking. |
+| `web/js/recipes.js` | Query generation (Search and Recommend), structured filters, Gemini ranking. |
 | `web/js/gemini.js` | Gemini client with the strong → light fallback. |
 | `web/js/suggestions.js` | Rotating "What sounds good?" ideas and the daily Gemini batch. |
-| `web/js/library.js` | Recipes tab grouping (This week / Last week / Last 30 days / Older). |
+| `web/js/library.js` | Save tab grouping (This week / Last week / Last 30 days / Older). |
 | `web/js/config.js` | The relay URL, filled in at deploy from the `RELAY_URL` repository variable. |
 | `web/js/setup-link.js` | The "Share setup link" that sets up another phone in one tap. |
 | `web/js/kroger.js`, `web/js/kroger-shared.js` | Direct-from-browser product search with relay fallback; product formatting shared with the relay. |
@@ -145,11 +145,11 @@ that, every push to `main` deploys whatever changed.
 
 Get a free key at <https://aistudio.google.com/apikey>. The free tier may use
 prompts for training, which is fine for this app. The key is pasted into the
-app's Settings page and stored only in that browser's localStorage.
+app's Config tab and stored only in that browser's localStorage.
 
 ### 6. In the app
 
-1. Open the site → **Settings**. Enter the relay password and Gemini key, then **Save**. The relay URL is already built in (leave it blank) if you set `RELAY_URL`.
+1. Open the site → **Config**. Enter the relay password and Gemini key, then **Save**. The relay URL is already built in (leave it blank) if you set `RELAY_URL`.
 2. Press **Check setup**. It checks the relay, the Worker secrets, Gemini, and whether Kroger allows direct browser calls (CORS).
 3. Under **Household (shared)**, press **Connect Fred Meyer** and log in once. The refresh token is stored in Workers KV and shared by both of you.
 4. Enter your ZIP → **Find stores** → choose your Fred Meyer, and choose pickup or delivery.
@@ -159,7 +159,7 @@ Everything under Household is saved on the relay, so both of you share it. The r
 
 ### 7. The rest of the household
 
-On a phone that's set up, go to **Settings → Share setup link** and send it
+On a phone that's set up, go to **Config → Share setup link** and send it
 to the other phone (it uses the share sheet, or copies the link). Opening it
 saves the relay password, plus your Gemini key if you ticked **Include my
 Gemini key**, on that phone. Otherwise they add their own key, so each person
@@ -169,13 +169,13 @@ the relay password, so only send it within your household.
 
 ## Using it
 
-1. **Find**: describe what you want, then set time, servings and what to leave out. The boxes rotate suggestions ("What sounds good?" ideas are written fresh by Gemini once a day and shared by both of you through the relay, using the light model, the season and your saved Recipes; a built-in list covers the gap); tap a box's label to use the idea shown (or, for "What to leave out?", your household list from Settings). Recipes rated below the household minimum (Settings, default 4★) are skipped; unrated ones are kept.
-   Or press **Recommendations** (no fields needed): Gemini looks at your saved Recipes, plus anything you filled in, and finds new dishes in a similar vein, skipping ones you've already saved.
+1. **Search**: describe what you want, then set time, servings and what to leave out. The boxes rotate suggestions ("What sounds good?" ideas are written fresh by Gemini once a day and shared by both of you through the relay, using the light model, the season and your saved recipes; a built-in list covers the gap); tap a box's label to use the idea shown (or, for "What to leave out?", your household list from Config). Recipes rated below the household minimum (Config, default 4★) are skipped; unrated ones are kept.
+   Or press **Recommend** (no fields needed): Gemini looks at your saved recipes, plus anything you filled in, and finds new dishes in a similar vein, skipping ones you've already saved.
    **Clear results** empties the results list.
-2. On any recipe, **Pick** it for this shop or **Save** it. The **Recipes** tab is one shared list of everything saved, by hand or automatically when sent to Fred Meyer, grouped into **This week** (weeks start Monday), **Last week**, **Last 30 days** and **Older** by when it was last saved or picked. **Pick** it again or **Remove** it from there. You can also add any recipe by pasting its link at the bottom.
-3. **Cart**: adjust servings per recipe (quantities scale), then press **Match ingredients**. **Clear cart** empties the picks and shopping list in the app; **Clear list** (next to the send button) empties just the shopping list. Neither touches the Fred Meyer cart.
+2. On any recipe, **Pick** it for this shop or **Save** it. The **Save** tab is one shared list of everything saved, by hand or automatically when sent to Fred Meyer, grouped into **This week** (weeks start Monday), **Last week**, **Last 30 days** and **Older** by when it was last saved or picked. **Pick** it again or **Remove** it from there. You can also add any recipe by pasting its link at the bottom.
+3. **Pick**: adjust servings per recipe (quantities scale), then press **Match ingredients**. **Clear cart** empties the picks and shopping list in the app; **Clear list** (next to the send button) empties just the shopping list. Neither touches the Fred Meyer cart.
 4. Review each line: swap to another candidate, search again, change the count, or remove it. Pantry staples, optional garnishes and water are listed under *Not adding*; tap + to add one anyway. If a Fred Meyer search fails, the line says why.
-5. Press **Add to Fred Meyer cart**, then use the **Fred Meyer cart** link below it to review and check out, and **Fred Meyer orders** to see past and current orders (Kroger's API can't read orders, so this opens Fred Meyer's purchases page). On phones these usually open the Fred Meyer app. The recipes you sent are saved to the shared **Recipes** tab automatically.
+5. Press **Add to Fred Meyer cart**, then use the **Fred Meyer cart** link below it to review and check out, and **Fred Meyer orders** to see past and current orders (Kroger's API can't read orders, so this opens Fred Meyer's purchases page). On phones these usually open the Fred Meyer app. The recipes you sent are saved to the shared **Save** tab automatically.
 
 The Kroger cart API is **write-only**: DinnerCart can add items but can't see
 or remove them. If you press *Send again*, the items are added a second time,
@@ -255,14 +255,14 @@ instructions. The app links to the source page instead.
 - Kroger's API sits behind a bot firewall that sometimes blocks Cloudflare's shared servers ("403 Access Denied"). So the app searches products **directly from the phone**, using a search-only token from the relay in the web address (Kroger allows browser requests, but refuses the CORS preflight a header would need), and falls back to the relay per item if that fails. **Check setup** shows which path is working and, if direct search fails, why. Relay requests identify the app, run 2 product searches at a time, retry once after a firewall block and then stop for that request, and cache product results for 6 hours.
 - Pages that block bots or have no `schema.org/Recipe` markup are skipped. They're listed under "couldn't be read" with the reason.
 - Free Cloudflare Workers get 10 ms of CPU per request. That's why each recipe page is parsed in its own request.
-- The Gemini free tier is rate-limited. Each visit starts on the strong model (`gemini-flash-latest`). When it hits its limit, the app switches to the light model (`gemini-flash-lite-latest`) until you reload. The Strong/Light toggle in Settings shows which model is active and can be switched by hand.
+- The Gemini free tier is rate-limited. Each visit starts on the strong model (`gemini-flash-latest`). When it hits its limit, the app switches to the light model (`gemini-flash-lite-latest`) until you reload. The Strong/Light toggle in Config shows which model is active and can be switched by hand.
 
 ## Build plan status
 
 - [x] Kroger: OAuth (authorization code + refresh), product search, location search, batched cart add through the relay. Finding: Kroger *does* allow browser CORS (a direct call returns HTTP 401, not a CORS error), but the relay is still required because the client secret and the user tokens must not live in the browser.
 - [x] Ingredient resolver + 50-line eval set + scoring script.
 - [x] Recipe search: Brave + JSON-LD extraction in the Worker.
-- [x] UI: criteria, results, review screen, settings (Gemini key, relay password, store, pantry), plus Recommendations, daily ideas and the Tomato & Basil design.
+- [x] UI: criteria, results, review screen, settings (Gemini key, relay password, store, pantry), plus Recommend, daily ideas and the Tomato & Basil design.
 - [x] Saved recipe library, plus KV caching of parsed recipes and search results.
 
 Out of scope for the MVP: meal planning, price/coupon optimization, nutrition

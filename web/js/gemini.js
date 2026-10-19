@@ -36,7 +36,7 @@ export function createModelSwitch({ strong = DEFAULT_MODEL, light = LIGHT_MODEL,
 // `model` is a model id, or a switch from createModelSwitch() to fall back
 // to the light model when the strong one is rate limited.
 export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = globalThis.fetch.bind(globalThis), maxRetries = 4 } = {}) {
-  if (!apiKey) throw new GeminiError('Add your Gemini API key in Settings.', 0);
+  if (!apiKey) throw new GeminiError('Add your Gemini API key in Config.', 0);
   const modelSwitch = typeof model === 'object' && model ? model : null;
   const currentModel = () => (modelSwitch ? modelSwitch.model : model || DEFAULT_MODEL);
 

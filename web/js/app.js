@@ -142,10 +142,10 @@ function recipeCard(recipe, { reason, libraryId } = {}) {
           <ul>${recipe.ingredients.map((i) => `<li>${h(i)}</li>`).join('')}</ul>
         </details>
         <div class="buttons">
-          <button class="${picked ? '' : 'primary'}" data-action="toggle-pick" data-url="${h(recipe.url)}">${picked ? `${icon('check')} Picked` : 'Pick'}</button>
+          <button class="${picked ? '' : 'primary'}" data-action="toggle-pick" data-url="${h(recipe.url)}">${picked ? `${icon('check')} Picked` : `${icon('cart')} Pick`}</button>
           ${libraryId
-            ? `<button data-action="lib-delete" data-id="${h(libraryId)}">Remove</button>`
-            : `<button data-action="save" data-url="${h(recipe.url)}" ${saved ? 'disabled' : ''}>${saved ? `${icon('bookmark', { filled: true })} Saved` : `${icon('bookmark')} Save`}</button>`}
+            ? `<button data-action="lib-delete" data-id="${h(libraryId)}">${icon('trash')} Remove</button>`
+            : `<button data-action="save" data-url="${h(recipe.url)}" ${saved ? 'disabled' : ''}>${saved ? `${icon('book', { filled: true })} Saved` : `${icon('book')} Save`}</button>`}
         </div>
       </div>
     </article>`;
@@ -200,14 +200,14 @@ async function runSearch(event) {
   event.preventDefault();
   const status = $('#find-status');
   if (!configured()) {
-    toast('Finish Settings first (relay URL, password, Gemini key).', 'error');
+    toast('Finish Config first (relay URL, password, Gemini key).', 'error');
     location.hash = 'settings';
     return;
   }
   const recommend = event.submitter?.id === 'recommend-btn';
   const criteria = { ...readCriteria(event.target), minRating: prefs.minRating ?? storage.DEFAULT_MIN_RATING };
   if (!recommend && !criteria.wants) {
-    setStatus(status, 'Tell me what sounds good, or try Recommendations.', 'error');
+    setStatus(status, 'Tell me what sounds good, or try Recommend.', 'error');
     return;
   }
   const buttons = [$('#search-btn'), $('#recommend-btn')];
@@ -260,7 +260,7 @@ function renderCart() {
   const cart = state.cart;
   const storeName = prefs.store?.name;
   if (!state.selected.length && !cart) {
-    picked.innerHTML = `<div class="card"><h2>Nothing picked yet</h2><p class="muted">Pick recipes from your <a href="#find">Search</a> or <a href="#recipes">Saves</a></p>${fmLinks()}</div>`;
+    picked.innerHTML = `<div class="card"><h2>Nothing picked yet</h2><p class="muted">Pick recipes from <a href="#find">Search</a> or <a href="#recipes">Save</a></p>${fmLinks()}</div>`;
     $('#cart').innerHTML = '';
     return;
   }
@@ -277,7 +277,7 @@ function renderCart() {
       <div class="actions" style="margin-top:12px">
         <button class="primary" data-action="build-cart" ${state.selected.length ? '' : 'disabled'}>${cart ? 'Rebuild' : 'Match'} ingredients${storeName ? ` at ${h(storeName)}` : ''}</button>
       </div>
-      ${storeName ? '' : '<p class="notice" style="margin:12px 0 0">Choose your Fred Meyer store in <a href="#settings">Settings</a> first.</p>'}
+      ${storeName ? '' : '<p class="notice" style="margin:12px 0 0">Choose your Fred Meyer store in <a href="#settings">Config</a> first.</p>'}
     </div>`;
   renderShoppingList();
 }
@@ -348,7 +348,7 @@ const findItem = (key) => state.cart?.items.find((i) => i.key === key);
 
 async function buildCart() {
   const status = $('#cart-status');
-  if (!configured()) { location.hash = 'settings'; return toast('Finish Settings first.', 'error'); }
+  if (!configured()) { location.hash = 'settings'; return toast('Finish Config first.', 'error'); }
   if (!prefs.store?.locationId) { location.hash = 'settings'; return toast('Choose your Fred Meyer store first.', 'error'); }
   await guarded(status, async () => {
     const recipes = state.selected.map((s) => ({ name: s.recipe.name, ingredients: s.recipe.ingredients, scale: scaleFor(s.recipe, s.servings) }));
@@ -399,7 +399,7 @@ async function sendCart() {
       setStatus(status, `Added ${r.added} products. Review and check out in Fred Meyer: `, 'ok');
       status.insertAdjacentHTML('beforeend', fmCartLink('Open Fred Meyer cart'));
       renderCart();
-      // Picked recipes are saved to the shared Recipes tab automatically.
+      // Picked recipes are saved to the shared Save tab automatically.
       relay().libraryPicked(state.selected.slice(0, 20).map((s) => s.recipe))
         .then((r) => { library = r.recipes; })
         .catch((err) => console.warn('could not record picked recipes', err));
@@ -419,7 +419,7 @@ async function sendCart() {
 async function loadLibrary(force = false) {
   const status = $('#library-status');
   if (!configured()) {
-    setStatus(status, 'Set up the relay in Settings to use your saved recipes.', 'error');
+    setStatus(status, 'Set up the relay in Config to use your saved recipes.', 'error');
     return;
   }
   if (library && !force) return renderLibrary();
@@ -458,7 +458,7 @@ async function saveRecipe(url) {
   await guarded(null, async () => {
     const saved = (await relay().librarySave(recipe)).recipe;
     library = [saved, ...(library || []).filter((r) => r.url !== saved.url)];
-    toast('Saved to Recipes');
+    toast('Saved');
     route();
   });
 }
@@ -593,7 +593,7 @@ document.addEventListener('click', async (e) => {
     case 'toggle-pick': return togglePick(url);
     case 'save': return saveRecipe(url);
     case 'lib-delete':
-      if (!confirm('Remove this recipe from your saved Recipes (for both of you)?')) return;
+      if (!confirm('Remove this recipe from Save (for both of you)?')) return;
       return guarded($('#library-status'), async () => {
         await relay().libraryDelete(id);
         library = library.filter((r) => r.id !== id);
