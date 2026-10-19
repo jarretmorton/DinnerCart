@@ -179,7 +179,16 @@ the relay password, so only send it within your household.
 
 Four tabs: **Search**, **Pick** (this shop's recipes and shopping list),
 **Save** (your shared recipes) and **Config**. On narrow screens the tabs show
-icons only.
+icons only. The app opens on Search (Config until it's set up); a reload
+stays on the tab you were on.
+
+**Buttons:** green moves you forward (Search, Pick, Cook, Match, Add to
+Fred Meyer cart); red keeps or removes (Save, Remove, Disconnect, the Config
+Saves). Both start outlined and go solid once they're done or in effect: the
+search method behind the results, a picked or saved recipe, Cook when its
+steps are already written, Match while the list fits the picks, Add to Fred
+Meyer cart until the list changes. Plain red text clears (Clear results,
+Clear picks, Clear list, remove). Links are green.
 
 ### Search
 
@@ -188,12 +197,12 @@ icons only.
   saved recipes; shared by both of you; a built-in list fills the gap). Tap
   the label to use the idea showing.
 - **Prep time and for how many?** 15 min to 1 hour, or any; servings; and the **Easy** toggle next to them.
-- **Easy** (lightning; outlined green when on): low-effort dinners. At most
+- **Easy** (lightning; solid green when on): low-effort dinners. At most
   10 ingredients (pantry staples don't count) and 8 steps, both adjustable in
   Config, with searches and ranking steered toward simple, one-pan dishes.
   It's separate from time, so an easy one-hour roast still counts. It applies
   to Search, Suggest and New alike, and Config can turn it on by default.
-- **Search** (red) finds recipes for what you typed. **Suggest** (green) needs
+- **Search** finds recipes for what you typed. **Suggest** (green) needs
   nothing filled in: Gemini looks at your saved recipes (plus anything you
   typed) and finds new dishes in a similar vein, skipping ones you've already
   saved. **New** (compass) is the opposite: it reads your saved recipes to see
@@ -204,16 +213,19 @@ icons only.
   out** list (Config), rated below the household minimum (Config, default 4★;
   unrated ones are kept), over the time, or over the Easy limits. Skipped
   recipes and pages that couldn't be read are listed with the reason.
-  **Clear results** empties the list.
+  **Clear results** empties the list. The button used for the results below
+  stays solid.
 
-Every recipe card has **Pick** (for this shop), **Save** and **Cook**.
+Every recipe card has **Pick** (for this shop), **Save** and **Cook**. A
+picked card gets a green outline.
 
 ### Save
 
 One shared list of everything saved, by hand or automatically when sent to
 Fred Meyer, grouped into **This week** (weeks start Monday), **Last week**,
 **Last 30 days** and **Older** by when it was last saved or picked. Filter it,
-**Pick** a recipe again, **Cook** it, or **Remove** it. Add any recipe by
+**Pick** a recipe again, **Cook** it, or **Remove** it (it fills red while it
+asks to confirm). Add any recipe by
 pasting its link at the bottom.
 
 ### Cook

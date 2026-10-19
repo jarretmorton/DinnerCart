@@ -68,8 +68,8 @@ export function createCookView({ root, timersEl, toast }) {
             ${s.timerMinutes ? `<button class="small timer-btn" data-cook="timer" data-i="${i}">${icon('clock')} ${formatMinutes(s.timerMinutes)}</button>` : ''}</div>
         </li>`).join('')}</ol>
       <div class="cook-foot">
-        <button class="small" data-cook="reset">${icon('pan')} Start cook over</button>
-        <button class="small" data-cook="regenerate">${icon('sparkle')} Regenerate cook steps</button>
+        <button class="small clear" data-cook="reset">${icon('pan')} Start cook over</button>
+        <button class="small go" data-cook="regenerate">${icon('sparkle')} Regenerate cook steps</button>
       </div>
     </div>`;
   }

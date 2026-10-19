@@ -55,13 +55,13 @@ body {
   font: 16px/1.45 var(--sans);
   padding-bottom: 80px;
 }
-a { color: var(--accent); }
+a { color: var(--basil); }
 h2, h3, legend, .suggest, .brand { font-family: var(--serif); }
 h2 { font-size: 1.2rem; font-weight: 700; margin: 0; }
 h3 { font-size: 1.05rem; font-weight: 600; margin: 0 0 4px; }
 .icon { width: 1.15em; height: 1.15em; vertical-align: -0.2em; flex-shrink: 0; }
 .suggest { cursor: pointer; text-decoration: underline dotted; text-decoration-color: var(--rule); text-underline-offset: 4px; align-self: flex-start; color: var(--text); font-size: 1rem; }
-.suggest:hover { color: var(--accent); }
+.suggest:hover { color: var(--basil); }
 .subhead { margin-top: 8px; padding-top: 12px; border-top: 1px dashed var(--rule); }
 
 .top {
@@ -124,20 +124,27 @@ fieldset input { width: auto; }
 .pill-toggle { flex-direction: row; align-items: center; gap: 4px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--text); cursor: pointer; font-size: 1rem; user-select: none; }
 .pill-toggle input { position: absolute; opacity: 0; pointer-events: none; }
 /* On: basil outline and text, no fill (the filled pills are the action buttons). */
-.pill-toggle:has(input:checked) { border-color: var(--basil); box-shadow: inset 0 0 0 1px var(--basil); color: var(--basil); font-weight: 600; }
+.pill-toggle:has(input:checked) { border-color: var(--basil); background: var(--basil); color: var(--basil-text); font-weight: 600; }
 .pill-toggle:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 button {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   padding: 9px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); cursor: pointer; white-space: nowrap;
 }
-button:hover { border-color: var(--accent); }
-button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
-button.basil { background: var(--basil); color: var(--basil-text); border-color: var(--basil); font-weight: 600; }
-button.basil:hover { border-color: var(--basil); filter: brightness(1.08); }
+button:hover { filter: brightness(0.97); }
 button.small { padding: 5px 12px; font-size: 0.85rem; }
-button.link { border: 0; background: none; color: var(--accent); padding: 4px; }
+button.link { border: 0; background: none; color: var(--basil); padding: 4px; }
+/* Go (green): moves you forward. Outline until used, solid once it's done or in effect. */
+button.go { border-color: var(--basil); box-shadow: inset 0 0 0 1px var(--basil); color: var(--basil); background: var(--card); font-weight: 600; }
+button.go.on { background: var(--basil); color: var(--basil-text); }
+/* Keep (red): saving, removing, account changes. Outline, solid once done. */
+button.keep { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: var(--accent); background: var(--card); font-weight: 600; }
+button.keep.on { background: var(--accent); color: var(--accent-text); }
+button.on:disabled { opacity: 1; } /* "Saved" is done, not unavailable */
+/* Clear (red text, no pill): clearing and removing lines. */
+button.clear { border: 0; box-shadow: none; background: none; color: var(--accent); padding-left: 4px; padding-right: 4px; }
 button:disabled { opacity: 0.5; cursor: default; }
+button[hidden] { display: none; }
 
 .status { padding: 10px 14px; border-radius: 12px; margin-bottom: 16px; background: var(--basil-soft); }
 .status.error { background: var(--warn-soft); color: var(--warn); }
@@ -146,7 +153,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
 .recipe { display: flex; flex-direction: column; padding: 0; overflow: hidden; margin: 0; }
-.recipe.selected { outline: 2px solid var(--accent); outline-offset: -1px; }
+.recipe.selected { outline: 2px solid var(--basil); outline-offset: -1px; }
 .recipe img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; background: var(--line); border-bottom: 1px dashed var(--rule); }
 .recipe .noimg { aspect-ratio: 16 / 10; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-size: 3rem; border-bottom: 1px dashed var(--rule); }
 .recipe .body { padding: 14px; display: flex; flex-direction: column; gap: 6px; flex: 1; }

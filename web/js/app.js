@@ -97,6 +97,18 @@ const isPicked = (url) => state.selected.some((s) => s.recipe.url === url);
 const savedEntry = (url) => (library || []).find((r) => r.url === url);
 const pickSignature = () => state.selected.map((s) => `${s.recipe.url}@${s.servings}`).join('|');
 
+// What "Add to Fred Meyer cart" sends: one line per product, packages summed.
+function cartLines(cart) {
+  const byUpc = new Map();
+  for (const item of cart.items) {
+    const p = item.candidates[item.choice];
+    if (item.removed || !p || item.packages < 1) continue;
+    byUpc.set(p.upc, (byUpc.get(p.upc) || 0) + item.packages);
+  }
+  return [...byUpc].map(([upc, quantity]) => ({ upc, quantity }));
+}
+const linesSignature = (cart) => cartLines(cart).map((l) => `${l.upc}x${l.quantity}`).join('|');
+
 // ---------------------------------------------------------------- routing
 
 function route() {
@@ -123,6 +135,9 @@ function renderTray(view = location.hash.slice(1)) {
 
 // ---------------------------------------------------------------- recipe cards
 
+// Solid Cook = steps already written (saved with the recipe or on this phone).
+const hasCook = (url) => Boolean(savedEntry(url)?.cook || storage.loadCook(url));
+
 function recipeCard(recipe, { reason, libraryId } = {}) {
   const picked = isPicked(recipe.url);
   const saved = savedEntry(recipe.url);
@@ -144,11 +159,11 @@ function recipeCard(recipe, { reason, libraryId } = {}) {
           <ul>${(recipe.ingredients || []).map((i) => `<li>${h(i)}</li>`).join('')}</ul>
         </details>
         <div class="buttons">
-          <button class="${picked ? '' : 'primary'}" data-action="toggle-pick" data-url="${h(recipe.url)}">${picked ? `${icon('check')} Picked` : `${icon('cart')} Pick`}</button>
+          <button class="go ${picked ? 'on' : ''}" data-action="toggle-pick" data-url="${h(recipe.url)}">${picked ? `${icon('check')} Picked` : `${icon('cart')} Pick`}</button>
           ${libraryId
-            ? `<button data-action="lib-delete" data-id="${h(libraryId)}">${icon('trash')} Remove</button>`
-            : `<button data-action="save" data-url="${h(recipe.url)}" ${saved ? 'disabled' : ''}>${saved ? `${icon('book', { filled: true })} Saved` : `${icon('book')} Save`}</button>`}
-          <button data-action="cook" data-url="${h(recipe.url)}">${icon('pan')} Cook</button>
+            ? `<button class="keep" data-action="lib-delete" data-id="${h(libraryId)}">${icon('trash')} Remove</button>`
+            : `<button class="keep ${saved ? 'on' : ''}" data-action="save" data-url="${h(recipe.url)}" ${saved ? 'disabled' : ''}>${saved ? `${icon('book', { filled: true })} Saved` : `${icon('book')} Save`}</button>`}
+          <button class="go ${hasCook(recipe.url) ? 'on' : ''}" data-action="cook" data-url="${h(recipe.url)}">${icon('pan')} Cook</button>
         </div>
       </div>
     </article>`;
@@ -250,9 +265,16 @@ function resultsBasis(r) {
   return '';
 }
 
+// The method behind the results below shows solid.
+function markSearchMethod(mode) {
+  const ids = { find: 'search-btn', recommend: 'suggest-btn', new: 'new-btn' };
+  for (const [m, id] of Object.entries(ids)) $(`#${id}`).classList.toggle('on', m === mode);
+}
+
 function renderResults() {
   const el = $('#results');
   const r = state.results;
+  markSearchMethod(r?.mode);
   if (!r) {
     el.innerHTML = '';
     return;
@@ -262,7 +284,7 @@ function renderResults() {
   el.innerHTML = `
     <div class="section-title">
       <h2>${r.ranked.length ? `${{ recommend: 'Suggested: ', new: 'New to you: ' }[r.mode] || ''}${plural(r.ranked.length, 'recipe')}` : 'No recipes matched'}</h2>
-      <button class="small" data-action="clear-results">Clear results</button>
+      <button class="small clear" data-action="clear-results">Clear results</button>
     </div>
     <p class="muted small-text">${resultsBasis(r)}Searched: ${r.queries.map(h).join(' · ')}${r.minRating ? ` · rated ${h(r.minRating)}★ and up` : ''}</p>
     <div class="grid">${r.ranked.map((x) => recipeCard(x.recipe, { reason: x.reason })).join('')}</div>
@@ -285,16 +307,16 @@ function renderCart() {
   }
   picked.innerHTML = `
     <div class="card">
-      <div class="section-title" style="margin-top:0"><h2>Picked recipes</h2><button class="small" data-action="clear-cart">Clear picks</button></div>
+      <div class="section-title" style="margin-top:0"><h2>Picked recipes</h2><button class="small clear" data-action="clear-cart">Clear picks</button></div>
       ${state.selected.map((s) => `
         <div class="picked-row">
           <div class="name"><a href="${h(s.recipe.url)}" target="_blank" rel="noopener">${h(s.recipe.name)}</a>
             <div class="muted small-text">${h(s.recipe.site || '')}${s.recipe.servings ? ` · recipe makes ${h(s.recipe.servings)}` : ' · servings unknown, not scaled'}</div></div>
           <label class="small-text">serves <input type="number" min="1" max="40" value="${h(s.servings)}" data-action="servings" data-url="${h(s.recipe.url)}"></label>
-          <button class="small" data-action="toggle-pick" data-url="${h(s.recipe.url)}" aria-label="Remove">${icon('x')}</button>
+          <button class="clear" data-action="toggle-pick" data-url="${h(s.recipe.url)}" aria-label="Remove">${icon('trash')}</button>
         </div>`).join('')}
       <div class="actions" style="margin-top:12px">
-        <button class="primary" data-action="build-cart" ${state.selected.length ? '' : 'disabled'}>${cart ? 'Rebuild' : 'Match'} ingredients${storeName ? ` at ${h(storeName)}` : ''}</button>
+        <button class="go" data-action="build-cart" ${state.selected.length ? '' : 'disabled'}>${cart ? 'Rebuild' : 'Match'} ingredients${storeName ? ` at ${h(storeName)}` : ''}</button>
       </div>
       ${storeName ? '' : '<p class="notice" style="margin:12px 0 0">Choose your Fred Meyer store in <a href="#settings">Config</a> first.</p>'}
     </div>`;
@@ -304,6 +326,8 @@ function renderCart() {
 function renderShoppingList() {
   const el = $('#cart');
   const cart = state.cart;
+  // Solid while the list matches the picks and servings (servings edits only redraw from here).
+  $('[data-action="build-cart"]')?.classList.toggle('on', cart?.signature === pickSignature());
   if (!cart) {
     el.innerHTML = '';
     return;
@@ -312,6 +336,8 @@ function renderShoppingList() {
   const removed = cart.items.filter((i) => i.removed);
   const sendable = active.filter((i) => i.candidates[i.choice] && i.packages > 0);
   const missing = active.filter((i) => !i.candidates[i.choice]);
+  // Solid only while the list is exactly what was sent (older carts didn't record it).
+  const unchanged = (cart.sentSignature ?? linesSignature(cart)) === linesSignature(cart);
   el.innerHTML = `
     ${cart.signature !== pickSignature() ? '<div class="notice">Your picks or servings changed since this list was built. Rebuild to update it.</div>' : ''}
     <div class="card">
@@ -323,11 +349,11 @@ function renderShoppingList() {
     ${removed.length ? `<div class="card"><h3>Removed</h3><div class="chips">${removed.map((i) => `<span class="chip">${h(i.name)}<button class="small link" data-action="restore-item" data-key="${h(i.key)}">undo</button></span>`).join('')}</div></div>` : ''}
     <div class="card sendbar">
       <div><strong>${plural(sendable.length, 'product')}</strong> · est. ${money(estimateTotal(sendable))}
-        ${cart.sentAt ? `<div class="muted small-text">Sent ${new Date(cart.sentAt).toLocaleString()}</div>` : ''}</div>
+        ${cart.sentAt ? `<div class="muted small-text">Sent ${new Date(cart.sentAt).toLocaleString()}${unchanged ? '' : ' · list changed since'}</div>` : ''}</div>
       <div class="sendbar-side">
         <div class="sendbar-actions">
-          <button class="primary" data-action="send-cart" ${sendable.length ? '' : 'disabled'}>${cart.sentAt ? 'Send again' : 'Add to Fred Meyer cart'}</button>
-          <button data-action="clear-list">Clear list</button>
+          <button class="go ${cart.sentAt && unchanged ? 'on' : ''}" data-action="send-cart" ${sendable.length ? '' : 'disabled'}>${cart.sentAt ? 'Send again' : 'Add to Fred Meyer cart'}</button>
+          <button class="clear" data-action="clear-list">Clear list</button>
         </div>
         ${fmLinks()}
       </div>
@@ -358,7 +384,7 @@ function itemRow(item) {
           <span title="${h(item.packagesSource || '')}">${p ? item.packages : 0}</span>
           <button data-action="qty" data-delta="1" data-key="${h(item.key)}" aria-label="More" ${p ? '' : 'disabled'}>+</button>
         </div>
-        <button class="small link" data-action="remove-item" data-key="${h(item.key)}">remove</button>
+        <button class="small clear" data-action="remove-item" data-key="${h(item.key)}">remove</button>
       </div>
     </div>`;
 }
@@ -400,13 +426,7 @@ async function searchFor(item, term) {
 
 async function sendCart() {
   const cart = state.cart;
-  const byUpc = new Map();
-  for (const item of cart.items) {
-    const p = item.candidates[item.choice];
-    if (item.removed || !p || item.packages < 1) continue;
-    byUpc.set(p.upc, (byUpc.get(p.upc) || 0) + item.packages);
-  }
-  const items = [...byUpc].map(([upc, quantity]) => ({ upc, quantity }));
+  const items = cartLines(cart);
   if (cart.sentAt && !confirm('These were already sent. The Fred Meyer cart can\'t be read or edited from here, so sending again will add duplicates. Send anyway?')) return;
   const status = $('#cart-status');
   await guarded(status, async () => {
@@ -414,6 +434,7 @@ async function sendCart() {
     try {
       const r = await relay().cartAdd(items, prefs.modality);
       cart.sentAt = Date.now();
+      cart.sentSignature = linesSignature(cart);
       persist();
       setStatus(status, `Added ${r.added} products. Review and check out in Fred Meyer: `, 'ok');
       status.insertAdjacentHTML('beforeend', fmCartLink('Open Fred Meyer cart'));
@@ -541,6 +562,8 @@ async function loadCook(recipe, { fresh = false } = {}) {
     // it falls back to the light one only if the strong one is rate limited.
     cook = await generateCook(createGemini({ apiKey: settings.geminiKey, model: createModelSwitch() }), recipe, instructions);
     storage.saveCook(recipe.url, cook);
+    // Its Cook buttons go solid: steps exist now.
+    document.querySelectorAll('[data-action="cook"]').forEach((b) => { if (b.dataset.url === recipe.url) b.classList.add('on'); });
   }
   if (saved) {
     relay().librarySave({ ...saved, cook })
@@ -578,7 +601,10 @@ async function refreshKrogerStatus() {
   try {
     const s = await relay().krogerStatus();
     el.textContent = s.connected ? `Connected${s.connectedAt ? ` since ${new Date(s.connectedAt).toLocaleDateString()}` : ''}.` : 'Not connected.';
+    // Not connected: one green Connect. Connected: red Disconnect, with Reconnect as a quiet link.
     $('#kroger-connect').textContent = s.connected ? 'Reconnect' : 'Connect Fred Meyer';
+    $('#kroger-connect').className = s.connected ? 'small link' : 'go';
+    $('#kroger-disconnect').hidden = !s.connected;
   } catch (err) {
     el.textContent = `Couldn't check: ${err.message}`;
   }
@@ -641,6 +667,7 @@ async function diagnose() {
   }
   rows.push(line(Boolean(prefs.store), prefs.store ? `Store: ${prefs.store.name}` : 'No store chosen yet.'));
   out.innerHTML = rows.join('');
+  $('#diagnose-btn').classList.add('on');
 }
 
 async function findStores() {
@@ -666,8 +693,13 @@ document.addEventListener('click', async (e) => {
     case 'toggle-pick': return togglePick(url);
     case 'save': return saveRecipe(url);
     case 'cook': return openCook(url);
-    case 'lib-delete':
-      if (!confirm('Remove this recipe from Save (for both of you)?')) return;
+    case 'lib-delete': {
+      btn.classList.add('on');
+      await new Promise((r) => setTimeout(r, 60)); // let it paint before the dialog
+      const ok = confirm('Remove this recipe from Save (for both of you)?');
+      btn.classList.remove('on');
+      if (!ok) return;
+    }
       return guarded($('#library-status'), async () => {
         await relay().libraryDelete(id);
         library = library.filter((r) => r.id !== id);
@@ -759,6 +791,8 @@ $('#kroger-disconnect').addEventListener('click', () => guarded(null, async () =
   refreshKrogerStatus();
 }));
 
+$('#settings-form').addEventListener('input', () => $('#device-save').classList.remove('on'));
+$('#prefs-form').addEventListener('input', () => $('#prefs-save').classList.remove('on'));
 $('#settings-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const f = e.target.elements;
@@ -769,6 +803,7 @@ $('#settings-form').addEventListener('submit', async (e) => {
   };
   storage.saveSettings(settings);
   toast('Saved on this device');
+  $('#device-save').classList.add('on');
   library = null;
   await loadRemotePrefs();
   renderSettings();
@@ -812,6 +847,7 @@ $('#prefs-form').addEventListener('submit', (e) => {
     });
     applySearchDefaults();
     toast('Household settings saved');
+    $('#prefs-save').classList.add('on');
   });
 });
 
@@ -829,6 +865,18 @@ function applySetupLink() {
   const done = Boolean(settings.geminiKey);
   history.replaceState(null, '', `${location.pathname}${location.search}${done ? '#find' : '#settings'}`);
   toast(done ? 'This device is set up.' : 'Almost done: add your Gemini key and press Save.');
+}
+
+// Opening the app starts on Search (a home-screen app can come back on
+// whatever tab it was left on). A reload, the Fred Meyer login coming back,
+// a setup link and the boot check's retry keep their tab; until the app is
+// set up it opens on Config.
+function startOnSearch() {
+  const nav = performance.getEntriesByType?.('navigation')[0]?.type;
+  const params = new URLSearchParams(location.search);
+  if (nav === 'reload' || nav === 'back_forward' || params.has('kroger') || params.has('r')) return;
+  if (!configured() || readSetupLink(location.hash) || !location.hash || location.hash === '#find') return;
+  history.replaceState(null, '', `${location.pathname}${location.search}#find`);
 }
 
 function handleOAuthReturn() {
@@ -892,6 +940,7 @@ document.querySelectorAll('[data-suggest]').forEach((label) => label.addEventLis
   input.value = ideas.current();
   input.focus();
 }));
+startOnSearch();
 applySetupLink();
 handleOAuthReturn();
 window.addEventListener('hashchange', route);

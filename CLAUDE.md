@@ -20,6 +20,18 @@ the change.
   labels; Inter (`--sans`) for everything else. Both are self-hosted in `web/fonts/`.
 - Shapes: pill buttons and tabs, 18px card radius, 12px fields, dashed
   `--rule` lines as dividers.
+- Buttons say what they do by color:
+  - `go` (basil green) moves you forward: search, pick, cook, match, send,
+    check, share, add.
+  - `keep` (tomato red) saves, removes or changes the account.
+  - Both are outlined until done or in effect, then `.on` makes them solid:
+    the search method behind the results, Picked, Saved, Cook when steps exist,
+    Match while the list fits the picks, Send until the list changes, a Config
+    Save until the form is edited again, Remove while its confirm is up.
+  - `clear` is red text with no pill, for Clear results/picks/list, remove and
+    the picked-recipe trash.
+  - Links and `link` buttons are green. A picked card gets a green outline.
+    Disabled buttons fade, except a solid "done" one like Saved.
 - Icons: line icons from `web/js/icons.js` (`icon('name')`, or
   `data-icon="name"` in HTML). Don't use emoji in the UI; add a new icon in the
   same style instead (24px grid, 1.75 stroke, round caps, currentColor).

@@ -51,9 +51,9 @@
           <label class="pill-toggle" title="Few ingredients, few steps, nothing fussy"><input type="checkbox" name="easy"><span data-icon="bolt"></span> Easy</label>
         </fieldset>
         <div class="wide actions search-actions">
-          <button type="submit" class="primary" id="search-btn"><span data-icon="search"></span> Search</button>
-          <button type="submit" class="basil" id="suggest-btn" title="Ideas based on your saved recipes, plus anything filled in above"><span data-icon="sparkle"></span> Suggest</button>
-          <button type="submit" id="new-btn" title="Something different from your saved recipes, plus anything filled in above"><span data-icon="compass"></span> New</button>
+          <button type="submit" class="go" id="search-btn"><span data-icon="search"></span> Search</button>
+          <button type="submit" class="go" id="suggest-btn" title="Ideas based on your saved recipes, plus anything filled in above"><span data-icon="sparkle"></span> Suggest</button>
+          <button type="submit" class="go" id="new-btn" title="Something different from your saved recipes, plus anything filled in above"><span data-icon="compass"></span> New</button>
         </div>
       </form>
       <div id="find-status" class="status" hidden></div>
@@ -76,7 +76,7 @@
       <div id="library"></div>
       <div class="card form add-by-link">
         <label class="wide">Add a recipe by link
-          <span class="row"><input id="add-url" type="url" placeholder="https://…"><button id="add-url-btn">Add</button></span>
+          <span class="row"><input id="add-url" type="url" placeholder="https://…"><button id="add-url-btn" class="go">Add</button></span>
         </label>
       </div>
     </section>
@@ -99,12 +99,12 @@
         </fieldset>
         <p class="wide hint">Each visit starts on Strong. If Strong hits Gemini's rate limit, this switches to Light by itself until you reload. You can also switch it by hand. Takes effect immediately.</p>
         <div class="wide actions">
-          <button type="submit" class="primary">Save</button>
-          <button type="button" id="diagnose-btn">Check setup</button>
+          <button type="submit" class="keep" id="device-save">Save</button>
+          <button type="button" class="go" id="diagnose-btn">Check setup</button>
         </div>
         <ul id="diagnostics" class="wide diagnostics"></ul>
         <div class="wide actions">
-          <button type="button" id="share-setup-btn"><span data-icon="share"></span> Share setup link</button>
+          <button type="button" class="go" id="share-setup-btn"><span data-icon="share"></span> Share setup link</button>
           <label class="inline-check"><input type="checkbox" id="share-gemini"> Include my Gemini key</label>
         </div>
         <p class="wide hint">Sets up another phone in your household with one tap. The link contains the relay password, so only send it to people in your household.</p>
@@ -118,12 +118,12 @@
         <p class="wide hint">One login for the household. The cart is shared; check it in the Fred Meyer app before checkout.</p>
         <p class="wide" id="kroger-status">Status unknown.</p>
         <div class="wide actions">
-          <button type="button" id="kroger-connect" class="primary">Connect Fred Meyer</button>
-          <button type="button" id="kroger-disconnect">Disconnect</button>
+          <button type="button" id="kroger-disconnect" class="keep" hidden>Disconnect</button>
+          <button type="button" id="kroger-connect" class="go">Connect Fred Meyer</button>
         </div>
 
         <h3 class="wide subhead">Store</h3>
-        <label>Store ZIP <span class="row"><input id="zip" inputmode="numeric" maxlength="5" placeholder="97214"><button type="button" id="zip-btn">Find stores</button></span></label>
+        <label>Store ZIP <span class="row"><input id="zip" inputmode="numeric" maxlength="5" placeholder="97214"><button type="button" class="go" id="zip-btn">Find stores</button></span></label>
         <label>Cart mode
           <select name="modality"><option value="PICKUP">Pickup</option><option value="DELIVERY">Delivery</option></select>
         </label>
@@ -156,7 +156,7 @@
         <label class="wide">Pantry staples (never added; one per line)
           <textarea name="pantry" rows="10"></textarea>
         </label>
-        <div class="wide actions"><button type="submit" class="primary">Save household settings</button></div>
+        <div class="wide actions"><button type="submit" class="keep" id="prefs-save">Save household settings</button></div>
       </form>
     </section>
   </main>
@@ -184,7 +184,7 @@
         var main = document.querySelector('main');
         main.innerHTML = '<div class="card" id="boot-error"><h2>DinnerCart didn\'t load</h2>'
           + '<p class="muted">Usually this clears up in a minute, right after an update. Try again; if it keeps happening, send this to whoever set up the app:</p>'
-          + '<p class="notice"></p><button class="primary" type="button">Reload</button></div>';
+          + '<p class="notice"></p><button class="go" type="button">Reload</button></div>';
         main.querySelector('.notice').textContent = errors.join(' · ') || 'The app took too long to start.';
         main.querySelector('button').onclick = function () { location.replace(location.pathname + '?r=' + Date.now() + location.hash); };
       }
