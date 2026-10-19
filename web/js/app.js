@@ -207,7 +207,7 @@ async function runSearch(event) {
     location.hash = 'settings';
     return;
   }
-  const recommend = event.submitter?.id === 'recommend-btn';
+  const recommend = event.submitter?.id === 'suggest-btn';
   // What to leave out, the pantry and the Easy limits come from Config.
   const criteria = {
     ...readCriteria(event.target),
@@ -218,10 +218,10 @@ async function runSearch(event) {
     easyMaxSteps: easyLimits().maxSteps,
   };
   if (!recommend && !criteria.wants) {
-    setStatus(status, 'Tell me what sounds good, or try Recommend.', 'error');
+    setStatus(status, 'Tell me what sounds good, or try Suggest.', 'error');
     return;
   }
-  const buttons = [$('#search-btn'), $('#recommend-btn')];
+  const buttons = [$('#search-btn'), $('#suggest-btn')];
   await guarded(status, async () => {
     buttons.forEach((b) => { b.disabled = true; });
     try {
@@ -253,7 +253,7 @@ function renderResults() {
   const failed = r.failed || [];
   el.innerHTML = `
     <div class="section-title">
-      <h2>${r.ranked.length ? `${r.mode === 'recommend' ? 'Recommended: ' : ''}${plural(r.ranked.length, 'recipe')}` : 'No recipes matched'}</h2>
+      <h2>${r.ranked.length ? `${r.mode === 'recommend' ? 'Suggested: ' : ''}${plural(r.ranked.length, 'recipe')}` : 'No recipes matched'}</h2>
       <button class="small" data-action="clear-results">Clear results</button>
     </div>
     <p class="muted small-text">${r.mode === 'recommend' ? (r.basedOn ? `Based on ${plural(r.basedOn, 'saved recipe')} · ` : 'No saved recipes yet, so these are popular picks · ') : ''}Searched: ${r.queries.map(h).join(' · ')}${r.minRating ? ` · rated ${h(r.minRating)}★ and up` : ''}</p>

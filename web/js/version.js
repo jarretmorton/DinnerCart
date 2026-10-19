@@ -1,2 +1,2 @@
 // Bump this with every change to the app.
-export const VERSION = '1.26.1';
+export const VERSION = '1.27.0';

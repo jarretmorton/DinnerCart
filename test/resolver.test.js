@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { estimateTotal, heuristicPick, resolveIngredients, setPackages } from '../web/js/resolver.js';
-import { describeCriteria, filterRecipes, generateQueries, scaleFor, shoppingIngredients } from '../web/js/recipes.js';
+import { describeCriteria, filterRecipes, findRecipes, generateQueries, scaleFor, shoppingIngredients } from '../web/js/recipes.js';
 
 // Fake Gemini: answers the normalize prompt from a table keyed by line text,
 // and the pick prompt with a provided function.
@@ -252,4 +252,26 @@ test('Easy: ingredient and step limits, pantry staples not counted, query hint',
   assert.match(prompt, /put a word like "easy"/);
   await generateQueries({ json: async (p) => { prompt = p; return { queries: ['x recipe'] }; } }, { wants: 'tacos' });
   assert.doesNotMatch(prompt, /put a word like "easy"/);
+});
+
+test('Easy applies to Suggest (recommendations) as well as Search', async () => {
+  const recipe = (n, ingredients, instructions) => ({ url: `https://x.test/${n}`, name: n, site: 'x.test', ingredients, instructions, totalMinutes: 30, rating: null });
+  const pages = {
+    'https://x.test/simple': recipe('simple', ['chicken', 'rice', 'lemon'], ['Cook.', 'Serve.']),
+    'https://x.test/fussy': recipe('fussy', Array.from({ length: 15 }, (_, i) => `thing ${i}`), ['Cook.']),
+  };
+  const relay = { search: async () => ({ results: Object.keys(pages).map((url) => ({ url })) }), recipe: async (url) => ({ recipe: pages[url] }) };
+  const prompts = [];
+  const gemini = { json: async (p) => {
+    prompts.push(p);
+    return p.includes('Candidate recipes:') ? { ranking: [{ index: 0, score: 90, reason: 'x' }] } : { queries: ['easy chicken recipe'] };
+  } };
+  const liked = [{ url: 'https://x.test/saved', name: 'Saved tacos', cuisine: ['Mexican'] }];
+  const out = await findRecipes({ gemini, relay, criteria: { easy: true, easyMaxIngredients: 10, easyMaxSteps: 8 }, liked });
+  assert.match(prompts[0], /Recipes they've saved/, 'suggest mode');
+  assert.match(prompts[0], /They want it easy/);
+  assert.match(prompts[0], /Easy: few ingredients/);
+  assert.deepEqual(out.ranked.map((r) => r.recipe.name), ['simple']);
+  assert.deepEqual(out.rejected.map((r) => r.reason), ['15 ingredients (Easy: 10 max)']);
+  assert.match(prompts[1], /Easy: few ingredients/, 'ranking knows too');
 });

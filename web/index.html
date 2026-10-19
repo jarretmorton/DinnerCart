@@ -43,16 +43,16 @@
           <legend>Prep time and for how many?</legend>
           <select name="maxMinutes" aria-label="Prep time">
             <option value="15">15 min</option><option value="20">20 min</option><option value="30" selected>30 min</option>
-            <option value="45">45 min</option><option value="60">1 hour</option><option value="">any time</option>
+            <option value="45">45 min</option><option value="60">1 hour</option><option value="">any</option>
           </select>
-          <span class="muted">for</span>
+          <span class="muted for-word">for</span>
           <input name="servings" type="number" min="1" max="20" value="4" aria-label="How many people">
           <span class="muted">people</span>
           <label class="pill-toggle" title="Few ingredients, few steps, nothing fussy"><input type="checkbox" name="easy"><span data-icon="bolt"></span> Easy</label>
         </fieldset>
         <div class="wide actions">
           <button type="submit" class="primary" id="search-btn"><span data-icon="search"></span> Search</button>
-          <button type="submit" id="recommend-btn" title="Ideas based on your saved recipes, plus anything filled in above"><span data-icon="sparkle"></span> Recommend</button>
+          <button type="submit" class="basil" id="suggest-btn" title="Ideas based on your saved recipes, plus anything filled in above"><span data-icon="sparkle"></span> Suggest</button>
         </div>
       </form>
       <div id="find-status" class="status" hidden></div>

@@ -102,7 +102,8 @@ fieldset label { flex-direction: row; align-items: center; color: var(--text); }
 fieldset input { width: auto; }
 .time-servings { flex-wrap: wrap; align-items: center; gap: 8px; }
 .time-servings select { flex: 0 1 auto; min-width: 0; width: auto; }
-.time-servings input { width: 4.5em; }
+.time-servings { column-gap: 6px; }
+.time-servings input[name=servings] { width: 2.8em; padding-left: 4px; padding-right: 4px; text-align: center; }
 .segmented { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--field); }
 .segmented label { display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; cursor: pointer; color: var(--text); }
 .segmented label + label { border-left: 1px solid var(--line); }
@@ -117,9 +118,10 @@ fieldset input { width: auto; }
 .inline-check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); cursor: pointer; }
 .inline-check input { width: auto; accent-color: var(--basil); }
 /* A checkbox that looks like a pill button (Easy). */
-.pill-toggle { flex-direction: row; align-items: center; gap: 6px; padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--text); cursor: pointer; font-size: 1rem; user-select: none; }
+.pill-toggle { flex-direction: row; align-items: center; gap: 4px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--text); cursor: pointer; font-size: 1rem; user-select: none; }
 .pill-toggle input { position: absolute; opacity: 0; pointer-events: none; }
-.pill-toggle:has(input:checked) { background: var(--basil); border-color: var(--basil); color: var(--basil-text); font-weight: 600; }
+/* On: basil outline and text, no fill (the filled pills are the action buttons). */
+.pill-toggle:has(input:checked) { border-color: var(--basil); box-shadow: inset 0 0 0 1px var(--basil); color: var(--basil); font-weight: 600; }
 .pill-toggle:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 button {
@@ -128,6 +130,8 @@ button {
 }
 button:hover { border-color: var(--accent); }
 button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+button.basil { background: var(--basil); color: var(--basil-text); border-color: var(--basil); font-weight: 600; }
+button.basil:hover { border-color: var(--basil); filter: brightness(1.08); }
 button.small { padding: 5px 12px; font-size: 0.85rem; }
 button.link { border: 0; background: none; color: var(--accent); padding: 4px; }
 button:disabled { opacity: 0.5; cursor: default; }
@@ -286,6 +290,8 @@ body:not(.cook-open) .timers { bottom: 72px; }
 
 /* Narrowest phones (or large system text): tighten a bit more. */
 @media (max-width: 380px) {
+  /* "Prep time and for how many?" already says it; keeps Easy on the same row. */
+  .for-word { display: none; }
   .top { padding: 8px 10px; }
   .brand { font-size: 1.12rem; gap: 3px; }
   nav a { padding: 7px 5px; font-size: 20px; }
