@@ -2,8 +2,10 @@
 // drawn in currentColor so they follow the text color (and night mode).
 const PATHS = {
   search: '<circle cx="10.5" cy="10.5" r="6.2"/><path d="M15.2 15.2 20 20"/>',
-  // Market basket stands in for "cart".
+  // Market basket: placeholder for products without a photo.
   basket: '<path d="M3.5 10h17l-1.7 8.4a2 2 0 0 1-2 1.6H7.2a2 2 0 0 1-2-1.6L3.5 10z"/><path d="M7.5 10a4.5 4.5 0 0 1 9 0"/><path d="M9.5 13.5v3M14.5 13.5v3M12 13.5v3"/>',
+  // Open-top cart with a shopping list flowing into it (the Cart tab).
+  cart: '<path d="M2.5 4.5h2.3l3 12h10.4L21 8"/><circle cx="9.3" cy="20" r="1.5"/><circle cx="16.8" cy="20" r="1.5"/><path d="M9.2 5.6h.01M11.6 5.6h6.6M9.9 9.3h.01M12.3 9.3h5.7M10.6 13h.01M13 13h3.2"/>',
   book: '<path d="M12 6.6C10 5.1 7 4.6 3.8 5v13.2c3.2-.4 6.2.1 8.2 1.6 2-1.5 5-2 8.2-1.6V5c-3.2-.4-6.2.1-8.2 1.6z"/><path d="M12 6.6v13.2"/>',
   gear: '<path d="M19.05 10.12 L21.28 10.50 L21.28 13.50 L19.05 13.88 L18.32 15.66 L19.62 17.50 L17.50 19.62 L15.66 18.32 L13.88 19.05 L13.50 21.28 L10.50 21.28 L10.12 19.05 L8.34 18.32 L6.50 19.62 L4.38 17.50 L5.68 15.66 L4.95 13.88 L2.72 13.50 L2.72 10.50 L4.95 10.12 L5.68 8.34 L4.38 6.50 L6.50 4.38 L8.34 5.68 L10.12 4.95 L10.50 2.72 L13.50 2.72 L13.88 4.95 L15.66 5.68 L17.50 4.38 L19.62 6.50 L18.32 8.34 Z"/><circle cx="12" cy="12" r="3.2"/>',
   clock: '<circle cx="12" cy="12" r="8"/><path d="M12 7.8V12l2.8 1.8"/>',
