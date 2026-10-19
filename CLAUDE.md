@@ -32,6 +32,8 @@ the change.
     Save until the form is edited again, Remove while its confirm is up.
   - `clear` is red text with no pill, for Clear results/picks/list, remove and
     the picked-recipe trash.
+  - Settings aren't buttons: an on/off setting (like Easy) is a checkbox, in a
+    field-shaped `check-field` when it sits among fields.
   - Links and `link` buttons are green. A picked card gets a green outline.
     Disabled buttons fade, except a solid "done" one like Saved.
 - Icons: line icons from `web/js/icons.js` (`icon('name')`, or

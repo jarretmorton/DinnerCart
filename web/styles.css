@@ -120,12 +120,12 @@ fieldset input { width: auto; }
 .hint { margin: -6px 0 0; font-size: 0.85rem; color: var(--muted); }
 .inline-check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); cursor: pointer; }
 .inline-check input { width: auto; accent-color: var(--basil); }
-/* A checkbox that looks like a pill button (Easy). */
-.pill-toggle { flex-direction: row; align-items: center; gap: 4px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--text); cursor: pointer; font-size: 1rem; user-select: none; }
-.pill-toggle input { position: absolute; opacity: 0; pointer-events: none; }
-/* On: basil outline and text, no fill (the filled pills are the action buttons). */
-.pill-toggle:has(input:checked) { border-color: var(--basil); background: var(--basil); color: var(--basil-text); font-weight: 600; }
-.pill-toggle:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* A checkbox in a box shaped like the fields beside it (Easy): it's a setting, not a button. */
+.check-field { flex-direction: row; align-items: center; gap: 8px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--field); color: var(--text); cursor: pointer; font-size: 1rem; user-select: none; }
+.check-field input { width: 18px; height: 18px; margin: 0; padding: 0; accent-color: var(--basil); cursor: pointer; }
+.check-field input:focus { box-shadow: none; }
+.check-field:has(input:checked) { font-weight: 600; }
+.check-field:has(input:focus-visible) { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
 button {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
@@ -303,6 +303,7 @@ body:not(.cook-open) .timers { bottom: 72px; }
 @media (max-width: 380px) {
   /* "Prep time and for how many?" already says it; keeps Easy on the same row. */
   .for-word { display: none; }
+  .check-field { padding-left: 9px; padding-right: 9px; gap: 6px; }
   .search-actions { gap: 6px; }
   .search-actions button { padding-left: 4px; padding-right: 4px; gap: 4px; font-size: 0.94rem; }
   .top { padding: 8px 10px; }
@@ -310,4 +311,8 @@ body:not(.cook-open) .timers { bottom: 72px; }
   nav a { padding: 7px 5px; font-size: 20px; }
   .recipe .buttons { gap: 6px; }
   .recipe .buttons button { padding-left: 6px; padding-right: 6px; gap: 4px; }
+}
+@media (max-width: 340px) {
+  /* The bold green labels need a touch less room on the smallest phones. */
+  .search-actions button { font-size: 0.88rem; }
 }

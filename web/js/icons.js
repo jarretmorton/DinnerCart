@@ -28,7 +28,6 @@ const PATHS = {
   x: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
   plus: '<path d="M12 5.5v13M5.5 12h13"/>',
   bowl: '<path d="M3.5 11.5h17a8.5 8.5 0 0 1-17 0z"/><path d="M8 20.5h8"/><path d="M9.5 8c0-1.1 1-1.5 1-2.6M13.5 8c0-1.1 1-1.5 1-2.6"/>',
-  bolt: '<path d="M13.2 3 5.5 13.4h5.8L10.5 21l7.9-10.4h-5.9L13.2 3z"/>',
   // Opens another site (e.g. the Fred Meyer cart).
   external: '<path d="M7 17 17 7"/><path d="M8.5 7H17v8.5"/>',
   share: '<path d="M12 14.5v-11"/><path d="M8 7.5l4-4 4 4"/><path d="M8.5 10.5H6.5a1.5 1.5 0 0 0-1.5 1.5v6.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V12a1.5 1.5 0 0 0-1.5-1.5h-2"/>',

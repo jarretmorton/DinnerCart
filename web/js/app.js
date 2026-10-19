@@ -247,7 +247,7 @@ function applySearchDefaults() {
   if (time.selectedIndex < 0) time.value = String(storage.DEFAULT_MAX_MINUTES);
   form.elements.servings.value = prefs.servings || storage.DEFAULT_SERVINGS;
   form.elements.easy.checked = Boolean(prefs.easy);
-  form.querySelector('.pill-toggle').title = `Up to ${easyLimits().maxIngredients} ingredients (not counting pantry staples) and ${easyLimits().maxSteps} steps`;
+  form.querySelector('.check-field').title = `Up to ${easyLimits().maxIngredients} ingredients (not counting pantry staples) and ${easyLimits().maxSteps} steps`;
 }
 
 const easyLimits = () => ({

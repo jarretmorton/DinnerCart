@@ -209,8 +209,8 @@ to an outline if you cancel or it fails.
   that Gemini writes fresh once a day (light model, using the season and your
   saved recipes; shared by both of you; a built-in list fills the gap). Tap
   the label to use the idea showing.
-- **Prep time and for how many?** 15 min to 1 hour, or any; servings; and the **Easy** toggle next to them.
-- **Easy** (lightning; solid green when on): low-effort dinners. At most
+- **Prep time and for how many?** 15 min to 1 hour, or any; servings; and the **Easy** checkbox next to them.
+- **Easy** (a setting, so it's a checkbox like the Config one, not a button): low-effort dinners. At most
   10 ingredients (pantry staples don't count) and 8 steps, both adjustable in
   Config, with searches and ranking steered toward simple, one-pan dishes.
   It's separate from time, so an easy one-hour roast still counts. It applies
