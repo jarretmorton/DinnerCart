@@ -65,8 +65,8 @@ export function createCookView({ root, timersEl, toast }) {
             ${s.timerMinutes ? `<button class="small timer-btn" data-cook="timer" data-i="${i}">${icon('clock')} ${formatMinutes(s.timerMinutes)}</button>` : ''}</div>
         </li>`).join('')}</ol>
       <div class="cook-foot">
-        <button class="small" data-cook="reset">Start cook over</button>
-        <button class="small" data-cook="regenerate">${icon('sparkle')} Regenerate steps</button>
+        <button class="small" data-cook="reset">${icon('pan')} Start cook over</button>
+        <button class="small" data-cook="regenerate">${icon('sparkle')} Regenerate cook steps</button>
       </div>
     </div>`;
   }
@@ -208,7 +208,7 @@ export function createCookView({ root, timersEl, toast }) {
       case 'prep': toggle(progress.prep); break;
       case 'step': toggle(progress.steps); break;
       case 'regenerate':
-        if (!confirm('Write the steps again with Gemini? The new steps replace these.')) return;
+        if (!confirm('Write the cook steps again with Gemini? The new steps replace these.')) return;
         current.progress = { prep: [], steps: [] };
         storage.saveProgress(current.recipe.url, current.progress);
         return load({ fresh: true });
