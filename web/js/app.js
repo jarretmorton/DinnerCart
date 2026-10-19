@@ -645,9 +645,9 @@ async function refreshKrogerStatus() {
   try {
     const s = await relay().krogerStatus();
     el.textContent = s.connected ? `Connected${s.connectedAt ? ` since ${new Date(s.connectedAt).toLocaleDateString()}` : ''}.` : 'Not connected.';
-    // Not connected: one green Connect. Connected: red Disconnect, with Reconnect as a quiet link.
+    // Not connected: one green Connect. Connected: red Disconnect and green Reconnect.
     $('#kroger-connect').textContent = s.connected ? 'Reconnect' : 'Connect Fred Meyer';
-    $('#kroger-connect').className = s.connected ? 'small link' : 'go';
+    $('#kroger-connect').classList.remove('on');
     $('#kroger-disconnect').hidden = !s.connected;
   } catch (err) {
     el.textContent = `Couldn't check: ${err.message}`;
@@ -814,6 +814,7 @@ document.addEventListener('change', (e) => {
     guarded(null, async () => {
       await savePrefsRemote({ store });
       toast(`Store set to ${store.name}`);
+      $('#store-list').innerHTML = ''; // chosen: the list folds away (Find stores stays solid)
       renderSettings();
     });
   }
@@ -821,9 +822,13 @@ document.addEventListener('change', (e) => {
 
 $('#criteria').addEventListener('submit', runSearch);
 $('#library-filter').addEventListener('input', renderLibrary);
-// Add is solid while it reads the page; Find stores stays solid over its results.
+// Add is solid while it reads the page; Find stores stays solid once it has found stores.
 $('#add-url-btn').addEventListener('click', () => addByUrl().finally(() => $('#add-url-btn').classList.remove('on')));
-$('#zip-btn').addEventListener('click', async () => { if (!await findStores()) $('#zip-btn').classList.remove('on'); });
+$('#zip-btn').addEventListener('click', async () => {
+  if (await findStores()) return;
+  $('#zip-btn').classList.remove('on');
+  if ($('#store-list').textContent === 'Searching…') $('#store-list').innerHTML = '';
+});
 $('#diagnose-btn').addEventListener('click', diagnose);
 $('#kroger-connect').addEventListener('click', async () => {
   if (!await guarded(null, () => connectKroger())) $('#kroger-connect').classList.remove('on');
