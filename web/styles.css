@@ -114,6 +114,9 @@ fieldset input { width: auto; }
 .row input { flex: 1; min-width: 0; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .actions button { white-space: normal; }
+/* Search, Suggest and New: three equal pills on one row. */
+.search-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.search-actions button { padding-left: 8px; padding-right: 8px; gap: 5px; white-space: nowrap; min-width: 0; }
 .hint { margin: -6px 0 0; font-size: 0.85rem; color: var(--muted); }
 .inline-check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); cursor: pointer; }
 .inline-check input { width: auto; accent-color: var(--basil); }
@@ -292,6 +295,8 @@ body:not(.cook-open) .timers { bottom: 72px; }
 @media (max-width: 380px) {
   /* "Prep time and for how many?" already says it; keeps Easy on the same row. */
   .for-word { display: none; }
+  .search-actions { gap: 6px; }
+  .search-actions button { padding-left: 4px; padding-right: 4px; gap: 4px; font-size: 0.94rem; }
   .top { padding: 8px 10px; }
   .brand { font-size: 1.12rem; gap: 3px; }
   nav a { padding: 7px 5px; font-size: 20px; }

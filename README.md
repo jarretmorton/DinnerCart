@@ -58,7 +58,7 @@ single-use `state` value.
 | `web/js/app.js` | UI controller: views, events, settings. |
 | `web/js/resolver.js` | Ingredient resolver (normalize → pantry → merge → search → pick → package count). Shared with the eval. |
 | `web/js/units.js` | Unit conversion and Kroger size parsing (`"6 ct / 12 fl oz"`, `"1/2 gal"`…). |
-| `web/js/recipes.js` | Query generation (Search and Suggest), structured filters, Gemini ranking. |
+| `web/js/recipes.js` | Query generation (Search, Suggest and New), structured filters, Gemini ranking. |
 | `web/js/gemini.js` | Gemini client with the strong → light fallback. |
 | `web/js/suggestions.js` | Rotating "What sounds good?" ideas and the daily Gemini batch. |
 | `web/js/cook.js`, `web/js/cook-view.js` | Cook: easy steps written by Gemini from the recipe's own method, amount scaling, and the Cook screen (ticks, timers, screen stays on). |
@@ -192,11 +192,14 @@ icons only.
   10 ingredients (pantry staples don't count) and 8 steps, both adjustable in
   Config, with searches and ranking steered toward simple, one-pan dishes.
   It's separate from time, so an easy one-hour roast still counts. It applies
-  to Search and Suggest alike, and Config can turn it on by default.
+  to Search, Suggest and New alike, and Config can turn it on by default.
 - **Search** (red) finds recipes for what you typed. **Suggest** (green) needs
   nothing filled in: Gemini looks at your saved recipes (plus anything you
   typed) and finds new dishes in a similar vein, skipping ones you've already
-  saved.
+  saved. **New** (compass) is the opposite: it reads your saved recipes to see
+  what you usually cook, then looks for something different (other cuisines,
+  main ingredients and cooking styles), still within anything you typed. With
+  nothing saved yet, it picks a mix of cuisines.
 - Every search skips recipes with anything on the household **what to leave
   out** list (Config), rated below the household minimum (Config, default 4★;
   unrated ones are kept), over the time, or over the Easy limits. Skipped
@@ -344,11 +347,11 @@ the original page's instructions, and always links to the source page.
 - [x] Kroger: OAuth (authorization code + refresh), product search, location search, batched cart add through the relay. Finding: Kroger *does* allow browser CORS (a direct call returns HTTP 401, not a CORS error), but the relay is still required because the client secret and the user tokens must not live in the browser.
 - [x] Ingredient resolver + 50-line eval set + scoring script.
 - [x] Recipe search: Brave + JSON-LD extraction in the Worker.
-- [x] UI: criteria, results, review screen, settings (Gemini key, relay password, store, pantry), plus Suggest, daily ideas and the Tomato & Basil design.
+- [x] UI: criteria, results, review screen, settings (Gemini key, relay password, store, pantry), plus Suggest, New, daily ideas and the Tomato & Basil design.
 - [x] Saved recipe library, plus KV caching of parsed recipes and search results.
 
 Added since: Cook (easy, scaled, checked steps with timers), the Easy filter,
-Suggest and daily ideas, direct-from-phone product search, the Fred Meyer
+Suggest, New and daily ideas, direct-from-phone product search, the Fred Meyer
 cart and orders links, the one-tap setup link, and deploys that work for any
 fork.
 

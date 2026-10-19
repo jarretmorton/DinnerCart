@@ -275,3 +275,31 @@ test('Easy applies to Suggest (recommendations) as well as Search', async () => 
   assert.deepEqual(out.rejected.map((r) => r.reason), ['15 ingredients (Easy: 10 max)']);
   assert.match(prompts[1], /Easy: few ingredients/, 'ranking knows too');
 });
+
+test('New: queries and ranking aim away from saved recipes, still honoring inputs and Easy', async () => {
+  const recipe = (n, ingredients) => ({ url: `https://x.test/${n}`, name: n, site: 'x.test', ingredients, instructions: ['Cook.'], totalMinutes: 30, rating: null });
+  const pages = {
+    'https://x.test/saved': recipe('saved', ['chicken']),
+    'https://x.test/laksa': recipe('laksa', ['noodles', 'coconut milk', 'shrimp']),
+    'https://x.test/fussy': recipe('fussy', Array.from({ length: 15 }, (_, i) => `thing ${i}`)),
+  };
+  const relay = { search: async () => ({ results: Object.keys(pages).map((url) => ({ url })) }), recipe: async (url) => ({ recipe: pages[url] }) };
+  const prompts = [];
+  const gemini = { json: async (p) => {
+    prompts.push(p);
+    return p.includes('Candidate recipes:') ? { ranking: [{ index: 0, score: 88, reason: 'A Malaysian noodle soup, unlike your Mexican favorites.' }] } : { queries: ['laksa recipe'] };
+  } };
+  const liked = [{ url: 'https://x.test/saved', name: 'Saved tacos', cuisine: ['Mexican'] }];
+  const out = await findRecipes({ gemini, relay, criteria: { wants: 'soup', easy: true, easyMaxIngredients: 10, easyMaxSteps: 8 }, liked, novel: true });
+  assert.match(prompts[0], /try something new[\s\S]*Saved tacos/);
+  assert.match(prompts[0], /clearly DIFFERENT from what they've saved/);
+  assert.match(prompts[0], /Looking for: soup/, 'what they typed still counts');
+  assert.match(prompts[0], /They want it easy/);
+  assert.match(prompts[1], /clearly unlike what they've saved/);
+  assert.deepEqual(out.ranked.map((r) => r.recipe.name), ['laksa']);
+  assert.deepEqual(out.rejected.map((r) => r.reason).sort(), ['15 ingredients (Easy: 10 max)', 'already in Save']);
+
+  prompts.length = 0;
+  await generateQueries(gemini, {}, { liked: [], novel: true });
+  assert.match(prompts[0], /three clearly different cuisines/, 'nothing saved yet');
+});
