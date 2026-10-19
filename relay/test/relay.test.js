@@ -266,6 +266,16 @@ test('library and prefs round trip through routes', async () => {
   let list = (await (await handle(req('GET', '/library'), env)).json()).recipes;
   assert.equal(list.length, 1, 'same URL replaces');
   assert.equal(list[0].name, 'R2');
+  // Cook steps are kept (cleaned); the original instructions never are.
+  const cook = { v: 1, prep: ['Preheat the oven to 400°F.', 7], steps: [{ text: 'Roast {{1 lb}} potatoes.', timerMinutes: '25', timerLabel: 'Roast' }, { text: '' }, { text: 'Serve.', timerMinutes: -3, timerLabel: 'x' }], warnings: [], model: 'm', generatedAt: '2026-10-19T00:00:00Z' };
+  const withCook = (await (await handle(req('POST', '/library', { body: { recipe: { ...recipe, name: 'R2', instructions: ['orig'], cook } } }), env)).json()).recipe;
+  assert.equal('instructions' in withCook, false);
+  assert.deepEqual(withCook.cook.prep, ['Preheat the oven to 400°F.']);
+  assert.deepEqual(withCook.cook.steps, [{ text: 'Roast {{1 lb}} potatoes.', timerMinutes: 25, timerLabel: 'Roast' }, { text: 'Serve.', timerMinutes: null, timerLabel: null }]);
+  const kept = (await (await handle(req('POST', '/library', { body: { recipe: { ...recipe, name: 'R2' } } }), env)).json()).recipe;
+  assert.equal(kept.cook.steps.length, 2, 're-saving without cook keeps the saved steps');
+  const noSteps = (await (await handle(req('POST', '/library', { body: { recipe: { ...recipe, name: 'R2', cook: { steps: [] } } } }), env)).json()).recipe;
+  assert.equal(noSteps.cook.steps.length, 2, 'empty cook is ignored');
   const evil = await handle(req('POST', '/library', { body: { recipe: { ...recipe, url: 'javascript:alert(1)' } } }), env);
   assert.equal(evil.status, 400);
   await handle(req('DELETE', `/library?id=${list[0].id}`), env);

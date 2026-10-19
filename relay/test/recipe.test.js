@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanText, extractJsonLdBlocks, extractRecipe, parseDurationMinutes } from '../src/recipe.js';
+import { cleanText, extractJsonLdBlocks, extractRecipe, parseDurationMinutes, parseInstructions } from '../src/recipe.js';
 
 const page = (ld) => `<html><head><title>x</title>
 <script type="application/ld+json">${typeof ld === 'string' ? ld : JSON.stringify(ld)}</script>
@@ -91,4 +91,17 @@ test('handles multiple ld+json blocks, ignoring unparseable ones', () => {
   <script type='application/ld+json' class="yoast">{"@type":"Recipe","name":"Tacos","recipeIngredient":["tortillas"]}</script>`;
   assert.equal(extractJsonLdBlocks(html).length, 1);
   assert.equal(extractRecipe(html, 'https://t.example').name, 'Tacos');
+});
+
+test('instructions: strings, HTML, HowToSteps and sections become text lines', () => {
+  assert.deepEqual(parseInstructions('Preheat oven to 400°F.\n\n2. Mix flour.'), ['Preheat oven to 400°F.', 'Mix flour.']);
+  assert.deepEqual(parseInstructions('<ol><li>Heat oil &amp; onions</li><li>Add <b>broth</b></li></ol>'), ['Heat oil & onions', 'Add broth']);
+  assert.deepEqual(parseInstructions(['Step 1: Boil water.', 'Add 1.5 cups pasta.']), ['Boil water.', 'Add 1.5 cups pasta.']);
+  assert.deepEqual(parseInstructions([
+    { '@type': 'HowToSection', name: 'For the sauce', itemListElement: [{ '@type': 'HowToStep', text: 'Whisk eggs.' }, { '@type': 'HowToStep', name: 'Step 2', text: 'Add milk.' }] },
+    { '@type': 'HowToStep', text: 'Serve.' },
+  ]), ['For the sauce:', 'Whisk eggs.', 'Add milk.', 'Serve.']);
+  assert.deepEqual(parseInstructions(undefined), []);
+  const r = extractRecipe(page({ '@type': 'Recipe', name: 'X', recipeIngredient: ['1 egg'], recipeInstructions: [{ '@type': 'HowToStep', text: 'Fry the egg.' }] }), 'https://x.example/r');
+  assert.deepEqual(r.instructions, ['Fry the egg.']);
 });

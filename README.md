@@ -55,6 +55,7 @@ single-use `state` value.
 | `web/js/recipes.js` | Query generation (Search and Recommend), structured filters, Gemini ranking. |
 | `web/js/gemini.js` | Gemini client with the strong → light fallback. |
 | `web/js/suggestions.js` | Rotating "What sounds good?" ideas and the daily Gemini batch. |
+| `web/js/cook.js`, `web/js/cook-view.js` | Cook: easy steps written by Gemini from the recipe's own method, amount scaling, and the Cook screen (ticks, timers, screen stays on). |
 | `web/js/library.js` | Save tab grouping (This week / Last week / Last 30 days / Older). |
 | `web/js/config.js` | The relay URL, filled in at deploy from the `RELAY_URL` repository variable. |
 | `web/js/setup-link.js` | The "Share setup link" that sets up another phone in one tap. |
@@ -171,8 +172,9 @@ the relay password, so only send it within your household.
 
 1. **Search**: describe what you want, then set time, servings and what to leave out. The boxes rotate suggestions ("What sounds good?" ideas are written fresh by Gemini once a day and shared by both of you through the relay, using the light model, the season and your saved recipes; a built-in list covers the gap); tap a box's label to use the idea shown (or, for "What to leave out?", your household list from Config). Recipes rated below the household minimum (Config, default 4★) are skipped; unrated ones are kept.
    Or press **Recommend** (no fields needed): Gemini looks at your saved recipes, plus anything you filled in, and finds new dishes in a similar vein, skipping ones you've already saved.
-   **Clear results** empties the results list.
-2. On any recipe, **Pick** it for this shop or **Save** it. The **Save** tab is one shared list of everything saved, by hand or automatically when sent to Fred Meyer, grouped into **This week** (weeks start Monday), **Last week**, **Last 30 days** and **Older** by when it was last saved or picked. **Pick** it again or **Remove** it from there. You can also add any recipe by pasting its link at the bottom.
+   **Search** finds recipes for what you typed. **Clear results** empties the results list.
+2. On any recipe, **Pick** it for this shop, **Save** it, or **Cook** it. The **Save** tab is one shared list of everything saved, by hand or automatically when sent to Fred Meyer, grouped into **This week** (weeks start Monday), **Last week**, **Last 30 days** and **Older** by when it was last saved or picked. **Pick** it again or **Remove** it from there. You can also add any recipe by pasting its link at the bottom.
+   **Cook** opens easy step-by-step instructions: Gemini rewrites the recipe page's own steps into one action per step, keeping every temperature, time and amount as the original gives them, with a "Before you start" list (preheat, chop, measure). Amounts scale to the number of people (your picked servings, the search's, or the household default; change it with − / +). Tap a line to tick it off; steps with a wait (bake, simmer, rest) have a timer button, and the timers ring, vibrate and stay on screen. The screen stays on while Cook is open, and Back closes it. If the original mentions a temperature the rewrite left out, Cook says so; it always links to the original. Steps are written once and kept on the phone; saving a recipe (by hand or by sending it to Fred Meyer) stores its Cook steps in the shared Save list, so both of you get them without asking Gemini again. Pages that don't publish their steps in schema.org markup just link to the original.
 3. **Pick**: adjust servings per recipe (quantities scale), then press **Match ingredients**. **Clear picks** empties the picks and shopping list in the app; **Clear list** (next to the send button) empties just the shopping list. Neither touches the Fred Meyer cart.
 4. Review each line: swap to another candidate, search again, change the count, or remove it. Pantry staples, optional garnishes and water are listed under *Not adding*; tap + to add one anyway. If a Fred Meyer search fails, the line says why.
 5. Press **Add to Fred Meyer cart**, then use the **Fred Meyer cart** link below it to review and check out, and **Fred Meyer orders** to see past and current orders (Kroger's API can't read orders, so this opens Fred Meyer's purchases page). On phones these usually open the Fred Meyer app. The recipes you sent are saved to the shared **Save** tab automatically.
@@ -233,7 +235,7 @@ All routes need `X-Relay-Password`, except the OAuth callback.
 |---|---|---|
 | `GET /health` | | which secrets/bindings are configured |
 | `POST /search` | `{queries: [..≤5]}` | merged, de-duplicated Brave results |
-| `POST /recipe` | `{url, refresh?}` | `{recipe}` parsed from JSON-LD, or `{recipe: null, reason}` |
+| `POST /recipe` | `{url, refresh?}` | `{recipe}` parsed from JSON-LD (including the original `instructions`, for Cook), or `{recipe: null, reason}` |
 | `POST /kroger/products` | `{terms: [..≤20], locationId}` | `{results: {term: [product]}, errors: {term: message}}` |
 | `GET /kroger/locations` | `?zip=97214` | Fred Meyer stores within 25 miles (all Kroger-family stores if there are none) |
 | `POST /kroger/cart` | `{items: [{upc, quantity}], modality}` | `{added, batches}` (batches of 25) |
@@ -242,12 +244,13 @@ All routes need `X-Relay-Password`, except the OAuth callback.
 | `POST /kroger/oauth/start` | `{returnTo}` | `{url}` to send the browser to |
 | `GET /kroger/oauth/callback` | (from Kroger) | redirects back to the app |
 | `POST /kroger/disconnect` | | forgets the stored tokens |
-| `GET/POST/DELETE /library` | `{recipe}` / `?id=` | shared recipe library (`savedAt`, `lastPickedAt`, `pickedCount` per recipe) |
+| `GET/POST/DELETE /library` | `{recipe}` / `?id=` | shared recipe library (`savedAt`, `lastPickedAt`, `pickedCount` and Cook steps per recipe) |
 | `POST /library/picked` | `{recipes: [..≤20]}` | saves recipes just sent to the cart and records the pick; returns the library |
 | `GET/PUT /prefs` | `{prefs: {store, pantry, leaveOut, modality, minRating, maxMinutes, servings, dailyIdeas}}` | shared household settings |
 
-Only the URL, ingredients and metadata of recipes are stored, never the
-instructions. The app links to the source page instead.
+The library stores each recipe's URL, ingredients and metadata, plus the
+app's own rewritten Cook steps once someone has opened Cook. It never stores
+the original page's instructions, and always links to the source page.
 
 ## Known constraints
 

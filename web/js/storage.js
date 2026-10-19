@@ -48,3 +48,27 @@ export const savePrefs = (p) => write(PREFS_KEY, p);
 // Today's Gemini-generated "What sounds good?" ideas: {date, ideas}.
 export const loadIdeas = () => read(IDEAS_KEY, null);
 export const saveIdeas = (v) => write(IDEAS_KEY, v);
+
+// Cook steps written on this device, by recipe URL (newest 40). Saved
+// recipes also keep theirs in the shared library on the relay.
+const COOK_KEY = 'dinnercart.cook';
+const PROGRESS_KEY = 'dinnercart.cookProgress';
+const DAY_MS = 86_400_000;
+
+function keepNewest(map, n) {
+  return Object.fromEntries(Object.entries(map).sort((a, b) => b[1].at - a[1].at).slice(0, n));
+}
+
+export const loadCook = (url) => read(COOK_KEY, {})[url]?.cook || null;
+export function saveCook(url, cook) {
+  write(COOK_KEY, keepNewest({ ...read(COOK_KEY, {}), [url]: { cook, at: Date.now() } }, 40));
+}
+
+// Ticked-off prep and steps while cooking, so a reload doesn't lose your place (kept a day).
+export function loadProgress(url) {
+  const p = read(PROGRESS_KEY, {})[url];
+  return p && Date.now() - p.at < DAY_MS ? p : { prep: [], steps: [] };
+}
+export function saveProgress(url, { prep, steps }) {
+  write(PROGRESS_KEY, keepNewest({ ...read(PROGRESS_KEY, {}), [url]: { prep, steps, at: Date.now() } }, 20));
+}

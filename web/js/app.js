@@ -1,4 +1,6 @@
 // DinnerCart UI controller. Plain DOM; views are re-rendered from `state`.
+import { generateCook } from './cook.js';
+import { NoStepsError, createCookView } from './cook-view.js';
 import { LIGHT_MODEL, createGemini, createModelSwitch } from './gemini.js';
 import { lastDirectProblem, lastSearchRoute, productSearcher, resetDirectSearch } from './kroger.js';
 import { createRelay } from './relay.js';
@@ -146,6 +148,7 @@ function recipeCard(recipe, { reason, libraryId } = {}) {
           ${libraryId
             ? `<button data-action="lib-delete" data-id="${h(libraryId)}">${icon('trash')} Remove</button>`
             : `<button data-action="save" data-url="${h(recipe.url)}" ${saved ? 'disabled' : ''}>${saved ? `${icon('book', { filled: true })} Saved` : `${icon('book')} Save`}</button>`}
+          <button data-action="cook" data-url="${h(recipe.url)}">${icon('pan')} Cook</button>
         </div>
       </div>
     </article>`;
@@ -400,7 +403,7 @@ async function sendCart() {
       status.insertAdjacentHTML('beforeend', fmCartLink('Open Fred Meyer cart'));
       renderCart();
       // Picked recipes are saved to the shared Save tab automatically.
-      relay().libraryPicked(state.selected.slice(0, 20).map((s) => s.recipe))
+      relay().libraryPicked(state.selected.slice(0, 20).map((s) => withCook(s.recipe)))
         .then((r) => { library = r.recipes; })
         .catch((err) => console.warn('could not record picked recipes', err));
     } catch (err) {
@@ -456,7 +459,7 @@ async function saveRecipe(url) {
   const recipe = allKnownRecipes().get(url);
   if (!recipe) return;
   await guarded(null, async () => {
-    const saved = (await relay().librarySave(recipe)).recipe;
+    const saved = (await relay().librarySave(withCook(recipe))).recipe;
     library = [saved, ...(library || []).filter((r) => r.url !== saved.url)];
     toast('Saved');
     route();
@@ -478,6 +481,53 @@ async function addByUrl() {
     setStatus(status, `Added “${saved.name}”.`, 'ok');
     renderLibrary();
   });
+}
+
+// ---------------------------------------------------------------- cook
+
+const cookView = createCookView({ root: $('#cook'), timersEl: $('#timers'), toast });
+
+// Steps written on this device ride along when a recipe gets saved, so
+// they're in the shared library for both of you.
+function withCook(recipe) {
+  const cook = recipe.cook || storage.loadCook(recipe.url);
+  return cook ? { ...recipe, cook } : recipe;
+}
+
+function openCook(url) {
+  // Search results carry the original steps; saved entries carry Cook steps.
+  const fromResults = state.results?.ranked?.find((r) => r.recipe.url === url)?.recipe;
+  const pick = state.selected.find((s) => s.recipe.url === url);
+  const recipe = { ...pick?.recipe, ...fromResults, ...savedEntry(url) };
+  if (!recipe.url) return;
+  const view = location.hash.slice(1);
+  const servings = pick?.servings || (view === 'find' && state.criteria?.servings) || prefs.servings || recipe.servings;
+  cookView.open({ recipe, servings, load: () => loadCook(recipe) });
+}
+
+async function loadCook(recipe) {
+  const saved = savedEntry(recipe.url);
+  if (saved?.cook) return saved.cook;
+  let cook = storage.loadCook(recipe.url);
+  if (!cook) {
+    if (!configured()) throw new Error('finish Config first.');
+    let { instructions } = recipe;
+    if (!Array.isArray(instructions)) {
+      // Pages read before Cook existed were cached without their steps: fetch again.
+      let fresh = (await relay().recipe(recipe.url)).recipe;
+      if (fresh && !Array.isArray(fresh.instructions)) fresh = (await relay().recipe(recipe.url, true)).recipe;
+      instructions = fresh?.instructions || [];
+    }
+    if (!instructions.length) throw new NoStepsError();
+    cook = await generateCook(gemini(), recipe, instructions);
+    storage.saveCook(recipe.url, cook);
+  }
+  if (saved) {
+    relay().librarySave({ ...saved, cook })
+      .then((r) => { library = (library || []).map((x) => (x.url === r.recipe.url ? r.recipe : x)); })
+      .catch((err) => console.warn('could not save Cook steps', err));
+  }
+  return cook;
 }
 
 // ---------------------------------------------------------------- settings
@@ -592,6 +642,7 @@ document.addEventListener('click', async (e) => {
   switch (action) {
     case 'toggle-pick': return togglePick(url);
     case 'save': return saveRecipe(url);
+    case 'cook': return openCook(url);
     case 'lib-delete':
       if (!confirm('Remove this recipe from Save (for both of you)?')) return;
       return guarded($('#library-status'), async () => {

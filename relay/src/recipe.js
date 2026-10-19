@@ -1,8 +1,9 @@
 // Extract and normalize schema.org/Recipe JSON-LD from a recipe page.
 // Pure functions (no Worker APIs) so they can be unit tested in Node.
 //
-// We deliberately do NOT keep recipeInstructions: the app stores the URL,
-// ingredients and metadata only, and links to the source for the method.
+// The original method (recipeInstructions) comes back as `instructions`, a
+// list of plain-text steps. It is only used to write the app's easy Cook
+// steps; the shared library never stores it (see store.js).
 
 const LD_SCRIPT_RE = /<script\b[^>]*\btype\s*=\s*["']?application\/ld\+json["']?[^>]*>([\s\S]*?)<\/script\s*>/gi;
 
@@ -105,6 +106,37 @@ function textList(v) {
     .filter(Boolean);
 }
 
+const MAX_STEPS = 80;
+
+// recipeInstructions comes as a string (maybe HTML or line breaks), a list
+// of strings, HowToStep objects, or HowToSections of steps. Flatten to text
+// lines; a section's name becomes its own line ("For the sauce:").
+export function parseInstructions(value, out = [], depth = 0) {
+  if (value == null || depth > 4) return out;
+  if (typeof value === 'string') {
+    for (const part of value.split(/<\/?(?:li|p|br|ol|ul|div)\b[^>]*>|\n+/i)) {
+      const line = cleanText(part).replace(/^(?:step\s*)?\d{1,2}[.):]\s+/i, '');
+      if (line) out.push(line);
+    }
+    return out;
+  }
+  if (Array.isArray(value)) {
+    for (const v of value) parseInstructions(v, out, depth + 1);
+    return out;
+  }
+  if (typeof value === 'object') {
+    const steps = value.itemListElement ?? value.steps;
+    if (steps) {
+      const name = cleanText(value.name);
+      if (name) out.push(/[:.]$/.test(name) ? name : `${name}:`);
+      return parseInstructions(steps, out, depth + 1);
+    }
+    const text = cleanText(value.text) || cleanText(value.name) || cleanText(value.description);
+    if (text) parseInstructions(text, out, depth + 1);
+  }
+  return out;
+}
+
 function pickImage(image) {
   for (const img of asArray(image)) {
     if (typeof img === 'string' && img) return img;
@@ -169,6 +201,7 @@ export function normalizeRecipe(node, url) {
     author: pickAuthor(node.author),
     site,
     ingredients,
+    instructions: parseInstructions(node.recipeInstructions).map((s) => s.slice(0, 1500)).slice(0, MAX_STEPS),
     totalMinutes,
     prepMinutes,
     cookMinutes,

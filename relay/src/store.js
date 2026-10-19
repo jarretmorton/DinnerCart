@@ -6,7 +6,7 @@
 //   brave:<hash>       cached search results (7 days)
 //   recipe:<hash>      cached parsed recipes (30 days), or a "none" marker
 //   products:<hash>    cached Kroger product searches per store + term (6 hours)
-//   library            saved recipe library (one JSON array)
+//   library            saved recipe library (one JSON array, with each recipe's Cook steps)
 //   prefs              shared household preferences (store, pantry, rating floor, daily ideas, ...)
 import { HttpError, sha256Hex } from './http.js';
 
@@ -93,14 +93,42 @@ export async function libraryDelete(env, id) {
   return list.length - next.length;
 }
 
-// Only keep the fields the app uses; never instructions.
+// Only keep the fields the app uses. Never the original instructions; the
+// app's own easy Cook steps (written by Gemini from them) are kept as `cook`.
 const RECIPE_FIELDS = ['url', 'name', 'description', 'image', 'author', 'site', 'ingredients', 'totalMinutes', 'prepMinutes', 'cookMinutes', 'servings', 'yieldText', 'rating', 'nutrition', 'cuisine', 'category', 'keywords', 'diet', 'notes'];
 
 export function stripRecipe(recipe) {
   const out = {};
   for (const f of RECIPE_FIELDS) if (recipe[f] !== undefined) out[f] = recipe[f];
   if (typeof out.notes === 'string') out.notes = out.notes.slice(0, 1000);
+  const cook = cleanCook(recipe.cook);
+  if (cook) out.cook = cook;
   return out;
+}
+
+const str = (v, max) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null);
+
+// Cook steps: {v, prep: [text], steps: [{text, timerMinutes, timerLabel}], warnings, model, generatedAt}.
+// Returns null (dropped) unless it has at least one step.
+export function cleanCook(cook) {
+  if (!cook || typeof cook !== 'object' || !Array.isArray(cook.steps)) return null;
+  const steps = cook.steps.slice(0, 80).map((s) => {
+    const text = str(s?.text, 600);
+    if (!text) return null;
+    const minutes = Number(s.timerMinutes);
+    const timed = Number.isFinite(minutes) && minutes > 0 && minutes <= 2880;
+    return { text, timerMinutes: timed ? Math.round(minutes * 10) / 10 : null, timerLabel: timed ? str(s.timerLabel, 40) : null };
+  }).filter(Boolean);
+  if (!steps.length) return null;
+  const list = (v, n, max) => (Array.isArray(v) ? v.map((x) => str(x, max)).filter(Boolean).slice(0, n) : []);
+  return {
+    v: Number.isInteger(cook.v) ? cook.v : 1,
+    prep: list(cook.prep, 30, 400),
+    steps,
+    warnings: list(cook.warnings, 5, 300),
+    model: str(cook.model, 60),
+    generatedAt: str(cook.generatedAt, 40),
+  };
 }
 
 // ---- prefs ----

@@ -53,8 +53,8 @@
           <input name="exclude" autocomplete="off">
         </label>
         <div class="wide actions">
-          <button type="submit" class="primary" id="search-btn">Search</button>
-          <button type="submit" id="recommend-btn" title="Ideas based on your saved recipes, plus anything filled in above">Recommend</button>
+          <button type="submit" class="primary" id="search-btn"><span data-icon="search"></span> Search</button>
+          <button type="submit" id="recommend-btn" title="Ideas based on your saved recipes, plus anything filled in above"><span data-icon="sparkle"></span> Recommend</button>
         </div>
       </form>
       <div id="find-status" class="status" hidden></div>
@@ -159,6 +159,8 @@
   </main>
 
   <a id="tray" class="tray" href="#cart" hidden></a>
+  <div id="cook" class="cook" role="dialog" aria-modal="true" aria-labelledby="cook-title" hidden></div>
+  <div id="timers" class="timers" aria-live="polite" hidden></div>
   <div id="toast" class="toast" role="status" hidden></div>
 
   <script type="module" src="js/app.js"></script>
