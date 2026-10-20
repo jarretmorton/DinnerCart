@@ -802,7 +802,7 @@ async function testGeminiSpeed() {
       await fn();
       return seconds(Date.now() - started);
     } catch (err) {
-      return `failed (${err.status === 429 ? 'limit reached' : err.status === 'timeout' ? 'no answer in time' : err.message})`;
+      return `failed (${err.status === 429 ? 'limit reached' : err.status === 'timeout' ? 'no answer in time' : `error ${err.status}`})`;
     }
   };
   const model = modelSwitch.model;
@@ -812,11 +812,32 @@ async function testGeminiSpeed() {
     const regular = await timed(() => gemini().json(...OK_TEST, { stream: false }));
     return line(true, `${model}: streamed ${streamed}, regular request ${regular}.`);
   })();
+  // Up to three other models. One Gemini lists but won't answer from (404,
+  // "no longer available") is remembered and skipped, and the next in line
+  // takes its place.
   const others = (async () => {
     try {
-      const names = pickTestModels(await listModels({ apiKey: settings.geminiKey })).filter((n) => n !== model);
-      if (!names.length) return line(false, 'Other models: none found to try.');
-      const results = await Promise.all(names.map(async (name) => `${name} ${await timed(() => createGemini({ apiKey: settings.geminiKey, model: name }).json(...OK_TEST))}`));
+      const retired = new Set(storage.loadRetiredModels());
+      const queue = pickTestModels(await listModels({ apiKey: settings.geminiKey }), Infinity).filter((n) => n !== model && !retired.has(n));
+      const results = [];
+      while (results.length < 3 && queue.length) {
+        const batch = queue.splice(0, 3 - results.length);
+        const tried = await Promise.all(batch.map(async (name) => {
+          const started = Date.now();
+          try {
+            await createGemini({ apiKey: settings.geminiKey, model: name }).json(...OK_TEST);
+            return `${name} ${seconds(Date.now() - started)}`;
+          } catch (err) {
+            if (err.status === 404) {
+              storage.addRetiredModel(name);
+              return null;
+            }
+            return `${name} failed (${err.status === 429 ? 'limit reached' : err.status === 'timeout' ? 'no answer in time' : `error ${err.status}`})`;
+          }
+        }));
+        results.push(...tried.filter(Boolean));
+      }
+      if (!results.length) return line(false, 'Other models: none found to try.');
       return line(true, `Other models: ${results.join(' · ')}.`);
     } catch (err) {
       return line(false, `Other models: couldn't list them (${err.message}).`);

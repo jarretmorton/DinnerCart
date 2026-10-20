@@ -59,6 +59,12 @@ const TIMINGS_KEY = 'dinnercart.geminiTimings';
 export const loadGeminiTimings = () => read(TIMINGS_KEY, []);
 export const addGeminiTiming = (t) => write(TIMINGS_KEY, [...loadGeminiTimings(), t].slice(-40));
 
+// Models Gemini lists but won't answer from ("no longer available to new
+// users"), so "Test Gemini speed" skips them.
+const RETIRED_KEY = 'dinnercart.retiredModels';
+export const loadRetiredModels = () => read(RETIRED_KEY, []);
+export const addRetiredModel = (name) => write(RETIRED_KEY, [...new Set([...loadRetiredModels(), name])]);
+
 // Today's Gemini-generated "What sounds good?" ideas: {date, ideas}.
 export const loadIdeas = () => read(IDEAS_KEY, null);
 export const saveIdeas = (v) => write(IDEAS_KEY, v);
