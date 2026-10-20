@@ -197,3 +197,26 @@ test('stream: false uses the regular request', async () => {
   assert.deepEqual(await g.json('p', {}, { stream: false }), { ok: true });
   assert.match(urls[0], /\/models\/m:generateContent$/);
 });
+
+test('listModels and pickTestModels: numbered Flash-Lite versions first, no previews or special models', async () => {
+  const { listModels, pickTestModels } = await import('../web/js/gemini.js');
+  let seenUrl;
+  const models = await listModels({ apiKey: 'k', fetchImpl: async (url, init) => {
+    seenUrl = url;
+    assert.equal(init.headers['x-goog-api-key'], 'k');
+    return new Response(JSON.stringify({ models: [
+      { name: 'models/gemini-3.8-flash', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/gemini-3.8-flash-lite', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/gemini-2.5-flash-lite', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/gemini-2.0-flash-lite-001', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/gemini-flash-lite-latest', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/gemini-3.9-flash-lite-preview', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/gemini-2.5-flash-image', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/text-embedding-004', supportedGenerationMethods: ['embedContent'] },
+    ] }), { status: 200 });
+  } });
+  assert.match(seenUrl, /\/v1beta\/models\?pageSize=1000$/);
+  assert.ok(!models.includes('text-embedding-004'), 'only models that can answer');
+  assert.deepEqual(pickTestModels(models), ['gemini-3.8-flash-lite', 'gemini-2.5-flash-lite', 'gemini-2.0-flash-lite-001']);
+  assert.deepEqual(pickTestModels(['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'], 3), ['gemini-2.5-flash-lite', 'gemini-3.8-flash', 'gemini-2.5-flash']);
+});

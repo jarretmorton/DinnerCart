@@ -1,7 +1,7 @@
 // DinnerCart UI controller. Plain DOM; views are re-rendered from `state`.
 import { generateCook } from './cook.js';
 import { NoStepsError, createCookView } from './cook-view.js';
-import { DEFAULT_MODEL, LIGHT_MODEL, START_TIMEOUT_MS, createGemini, createModelSwitch, summarizeTimings, waitText } from './gemini.js';
+import { DEFAULT_MODEL, LIGHT_MODEL, START_TIMEOUT_MS, createGemini, createModelSwitch, listModels, pickTestModels, summarizeTimings, waitText } from './gemini.js';
 import { findStores as findStoresNearby, lastDirectProblem, lastSearchRoute, productSearcher, resetDirectSearch } from './kroger.js';
 import { createRelay } from './relay.js';
 import { findRecipes, scaleFor } from './recipes.js';
@@ -772,6 +772,25 @@ async function diagnose() {
     rows.push(line(true, `Speed test (${model}): regular request done in ${seconds(regular.totalMs)}, streamed ${streamed ? seconds(streamed.totalMs) : 'not measured'}.`));
   } catch (err) {
     rows.push(line(false, `Speed test, regular request: ${err.message}`));
+  }
+  // Other models, side by side: maybe one answers much faster than the
+  // light one. Each try uses one request of that model's own daily allowance.
+  try {
+    const names = pickTestModels(await listModels({ apiKey: settings.geminiKey }));
+    const results = await Promise.all(names.map(async (name) => {
+      const started = Date.now();
+      try {
+        await createGemini({ apiKey: settings.geminiKey, model: name }).json('Reply with {"ok": true}.', { type: 'OBJECT', properties: { ok: { type: 'BOOLEAN' } }, required: ['ok'] });
+        return `${name} ${seconds(Date.now() - started)}`;
+      } catch (err) {
+        return `${name} failed (${err.status === 429 ? 'limit reached' : err.status === 'timeout' ? 'no answer in time' : `error ${err.status}`})`;
+      }
+    }));
+    rows.push(names.length
+      ? line(true, `Other models, same one-line test: ${results.join(' · ')}.`)
+      : line(false, 'Other models: none found to try.'));
+  } catch (err) {
+    rows.push(line(false, `Other models: couldn't list them (${err.message}).`));
   }
   // How fast Gemini has really been on this device, per model.
   for (const t of summarizeTimings(storage.loadGeminiTimings())) {

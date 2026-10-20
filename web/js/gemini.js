@@ -14,15 +14,15 @@ export class GeminiError extends Error {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// One gate for every request, on both models: a request that shows no sign
-// of life (no first piece of the answer) within START_TIMEOUT_MS is stuck,
-// and none may take longer than TIMEOUT_MS in all. Running out on the strong
-// model switches to the light one. The models tend to send their answer in
-// one go after thinking, so the first piece can come late (seen: 10-15 s on
-// the free tier); 5 and 15 s cut off requests that would have worked.
-// No thinking settings are sent: asking for thought summaries
-// (includeThoughts) or a thinking level made the light model think, and its
-// replies went from about 1 s to 10-30 s, with no thoughts streamed back.
+// No request may take longer than TIMEOUT_MS in all. On the strong model
+// (when there's a light one to switch to), one that shows no sign of life
+// (no first piece of the answer) within START_TIMEOUT_MS is also given up on,
+// so the switch comes sooner; the light model, with nothing left to switch
+// to, gets the whole TIMEOUT_MS. The models tend to send their answer in one
+// go at the end, and on the free tier even a one-line reply has taken
+// 20-30 s, streamed or not; 5 and 15 s cut off requests that would have
+// worked. No thinking settings are sent: asking for thought summaries
+// brought none back.
 export const START_TIMEOUT_MS = 30_000;
 export const TIMEOUT_MS = 60_000;
 // A limit that lifts later than this is the free tier's daily limit, not
@@ -201,7 +201,8 @@ export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = global
       let res;
       let data;
       try {
-        ({ res, data } = await send(body, { timeoutMs, startTimeoutMs, onStage, stream }));
+        // The start gate only where there's a lighter model to switch to.
+        ({ res, data } = await send(body, { timeoutMs, startTimeoutMs: onStrong() ? startTimeoutMs : null, onStage, stream }));
       } catch (err) {
         // Strong model stuck or slow: try the light one now.
         if (err.status === 'timeout' && onStrong()) {
@@ -267,6 +268,35 @@ export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = global
   }
 
   return { json, get model() { return currentModel(); } };
+}
+
+// The models this key may ask for answers (names without "models/").
+// Listing them doesn't count against the daily limits.
+export async function listModels({ apiKey, fetchImpl = globalThis.fetch.bind(globalThis) }) {
+  const res = await fetchImpl(`${API}?pageSize=1000`, { headers: { 'x-goog-api-key': apiKey } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new GeminiError(`Gemini ${res.status}: ${data?.error?.message || res.statusText}`, res.status);
+  return (data.models || [])
+    .filter((m) => (m.supportedGenerationMethods || []).includes('generateContent'))
+    .map((m) => String(m.name || '').replace(/^models\//, ''))
+    .filter(Boolean);
+}
+
+// For "Check setup": other models worth timing against the light one.
+// Numbered Flash-Lite versions, newest first (then numbered Flash ones if
+// there are fewer than `count`), leaving out previews, the "-latest"
+// aliases and special-purpose ones (image, audio, TTS, live...).
+export function pickTestModels(names, count = 3) {
+  const version = (n) => (n.match(/^gemini-(\d+(?:\.\d+)*)-/)?.[1] || '0').split('.').map(Number);
+  const newer = (a, b) => {
+    const [x, y] = [version(a), version(b)];
+    for (let i = 0; i < Math.max(x.length, y.length); i++) if ((y[i] || 0) !== (x[i] || 0)) return (y[i] || 0) - (x[i] || 0);
+    return 0;
+  };
+  const plain = (re) => names.filter((n) => re.test(n)).sort(newer);
+  const lite = plain(/^gemini-\d+(?:\.\d+)*-flash-lite(?:-\d{3})?$/);
+  const flash = plain(/^gemini-\d+(?:\.\d+)*-flash(?:-\d{3})?$/);
+  return [...new Set([...lite, ...flash])].slice(0, count);
 }
 
 // For "Check setup": per model, how fast the recent requests on this device
