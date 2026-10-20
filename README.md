@@ -336,8 +336,13 @@ It reports **product accuracy**, **search recall** (whether any correct product
 was in the search results at all, which separates search misses from pick
 misses), and **package-count accuracy**. Full results are written to
 `eval/results/latest.json`. Run it after every resolver or prompt change. The
-*Resolver eval* workflow also runs it on pushes that touch the resolver, once
-the secrets are set.
+*Resolver eval* workflow also runs it on pushes to `main` that touch the
+resolver, once the secrets are set. Those runs use the light model
+(`gemini-flash-lite-latest`), so they don't spend the strong model's small free
+daily allowance (each run takes about 7 requests, and the limit is counted per
+model). To score the strong model, run the workflow by hand from the Actions
+tab and choose `gemini-flash-latest`. A failed run shows as failed, with the
+error in the run's summary. Locally, set `GEMINI_MODEL` to pick the model.
 
 To lock a case to the exact product, add `"upcs": ["0001111041700"]` to its
 `expect`.

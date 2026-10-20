@@ -1,12 +1,25 @@
 name: Resolver eval
 
 # Scores ingredient -> product matching on eval/cases.json whenever the
-# resolver changes. Skips quietly until GEMINI_API_KEY, RELAY_PASSWORD and
+# resolver changes on main (not on working branches too, which would run it
+# twice per change). Skips quietly until GEMINI_API_KEY, RELAY_PASSWORD and
 # the RELAY_URL variable are set.
+#
+# Automatic runs use the light model: each run takes about 7 Gemini
+# requests, and the free tier's daily limit is counted per model, so this
+# leaves the strong model's small allowance to the app. To score the strong
+# model, run it by hand (Actions → Resolver eval → Run workflow).
 on:
   push:
+    branches: [main]
     paths: ["web/js/resolver.js", "web/js/units.js", "web/js/gemini.js", "eval/**"]
   workflow_dispatch:
+    inputs:
+      model:
+        description: Gemini model to score
+        type: choice
+        options: [gemini-flash-lite-latest, gemini-flash-latest]
+        default: gemini-flash-lite-latest
 
 jobs:
   eval:
@@ -15,6 +28,8 @@ jobs:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       RELAY_PASSWORD: ${{ secrets.RELAY_PASSWORD }}
       RELAY_URL: ${{ vars.RELAY_URL }}
+      # inputs is empty on push, so pushes get the light model.
+      GEMINI_MODEL: ${{ inputs.model || 'gemini-flash-lite-latest' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
