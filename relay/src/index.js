@@ -8,7 +8,7 @@ import { corsHeaders, requirePassword } from './auth.js';
 import { HttpError, errorResponse, json, readJson } from './http.js';
 import * as kroger from './kroger.js';
 import { fetchRecipe, searchMany } from './search.js';
-import { libraryDelete, libraryList, libraryPicked, librarySave, prefsGet, prefsUpdate } from './store.js';
+import { libraryDelete, libraryList, libraryPicked, librarySave, prefsGet, prefsUpdate, usualSet, usualsGet } from './store.js';
 
 const routes = {
   'GET /health': async (_req, env) => ({
@@ -85,6 +85,13 @@ const routes = {
   'PUT /prefs': async (req, env) => {
     const body = await readJson(req);
     return { prefs: await prefsUpdate(env, body.prefs) };
+  },
+
+  'GET /usuals': async (_req, env) => ({ usuals: await usualsGet(env) }),
+
+  'PUT /usuals': async (req, env) => {
+    const body = await readJson(req);
+    return { usuals: await usualSet(env, body.key, body.product ?? null) };
   },
 };
 

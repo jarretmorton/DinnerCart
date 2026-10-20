@@ -161,7 +161,7 @@ app's Config tab and stored only in that browser's localStorage.
 2. Press **Check setup**. It checks the relay, the Worker secrets, Gemini, and whether Kroger allows direct browser calls (CORS).
 3. Under **Household (shared)**, press **Connect Fred Meyer** and log in once. The refresh token is stored in Workers KV and shared by both of you.
 4. Enter your ZIP → **Find stores** → choose your Fred Meyer, and choose pickup or delivery.
-5. Set the search defaults (max time, servings, minimum rating), your "what to leave out" list, and the pantry staples list. Pantry items are never added to the cart.
+5. Set the search defaults (max time, servings, minimum rating), your "what to leave out" list, your shopping preferences (optional, see *Pick and send*), and the pantry staples list. Pantry items are never added to the cart.
 
 Everything under Household is saved on the relay, so both of you share it. The relay URL, password and Gemini key are per device.
 
@@ -275,6 +275,19 @@ pasting its link at the bottom.
    count, or remove it. Pantry staples, optional garnishes and water are listed
    under *Not adding*; tap + to add one anyway. If a Fred Meyer search fails,
    the line says why.
+
+   Each line's note says why that product was chosen.
+   - **Shopping preferences** (Config → Shopping): plain lines like "organic
+     produce and dairy", "Tillamook cheese", "2% milk", "no store-brand
+     coffee". Match follows them when it chooses products, and for items a
+     preference covers it also searches for that version ("organic baby
+     spinach") so there's one to choose. What the recipe asks for still comes
+     first: a recipe's whole milk stays whole milk.
+   - **Usual products:** the product you swap to becomes the household's usual
+     for that item, shared by both phones. Next time Match looks it up, puts it
+     first and picks it (marked *your usual*) unless it's wrong for the recipe;
+     if the store doesn't carry it, the line says so. Config → Shopping lists
+     them, with a trash button to forget one.
 3. Press **Add to Fred Meyer cart**, then use the **Fred Meyer cart** link
    below it to review and check out, and **Fred Meyer orders** to see past and
    current orders (Kroger's API can't read orders, so this opens Fred Meyer's
@@ -348,7 +361,9 @@ All routes need `X-Relay-Password`, except the OAuth callback.
 | `POST /kroger/disconnect` | | forgets the stored tokens |
 | `GET/POST/DELETE /library` | `{recipe}` / `?id=` | shared recipe library (`savedAt`, `lastPickedAt`, `pickedCount` and Cook steps per recipe) |
 | `POST /library/picked` | `{recipes: [..≤20]}` | saves recipes just sent to the cart and records the pick; returns the library |
-| `GET/PUT /prefs` | `{prefs: {store, pantry, leaveOut, modality, minRating, maxMinutes, servings, easy, easyMaxIngredients, easyMaxSteps, dailyIdeas}}` | shared household settings |
+| `GET/PUT /prefs` | `{prefs: {store, pantry, leaveOut, shoppingPrefs, modality, minRating, maxMinutes, servings, easy, easyMaxIngredients, easyMaxSteps, dailyIdeas}}` | shared household settings |
+| `GET /usuals` | | `{usuals: {item name: {upc, description, brand, size, image, at}}}` |
+| `PUT /usuals` | `{key, product}` (`product: null` forgets it) | sets one item's usual product (keeps the latest 300) |
 
 The library stores each recipe's URL, ingredients and metadata, plus the
 app's own rewritten Cook steps once someone has opened Cook. It never stores
@@ -377,10 +392,10 @@ the original page's instructions, and always links to the source page.
 - [x] Saved recipe library, plus KV caching of parsed recipes and search results.
 
 Added since: Cook (easy, scaled, checked steps with timers), the Easy filter,
-Suggest, New and daily ideas, direct-from-phone product search, the Fred Meyer
-cart and orders links, the one-tap setup link, and deploys that work for any
-fork.
+Suggest, New and daily ideas, direct-from-phone product and store search,
+shopping preferences and usual products, the Fred Meyer cart and orders links,
+the one-tap setup link, and deploys that work for any fork.
 
 Out of scope for the MVP: meal planning, price/coupon optimization, nutrition
-tracking, purchase-history learning. One relay serves one household; other
+tracking, learning from past orders (beyond the usual products you pick). One relay serves one household; other
 households run their own copy (see above).

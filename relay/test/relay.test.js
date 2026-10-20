@@ -319,8 +319,30 @@ test('library and prefs round trip through routes', async () => {
   assert.equal((await handle(req('PUT', '/prefs', { body: { prefs: { dailyIdeas: { date: 'today', ideas: [] } } } }), env)).status, 400);
   const lo = await handle(req('PUT', '/prefs', { body: { prefs: { leaveOut: [' mushrooms ', '', 'olives'] } } }), env);
   assert.deepEqual((await lo.json()).prefs.leaveOut, ['mushrooms', 'olives']);
+  const sp = await handle(req('PUT', '/prefs', { body: { prefs: { shoppingPrefs: [' organic produce ', '', 'Tillamook cheese'] } } }), env);
+  assert.deepEqual((await sp.json()).prefs.shoppingPrefs, ['organic produce', 'Tillamook cheese']);
+  assert.equal((await handle(req('PUT', '/prefs', { body: { prefs: { shoppingPrefs: 'organic' } } }), env)).status, 400);
   const got = (await (await handle(req('GET', '/prefs'), env)).json()).prefs;
   assert.equal(got.modality, 'DELIVERY');
+});
+
+test('usuals: set, replace, forget, validate', async () => {
+  const env = makeEnv();
+  const get = async () => (await (await handle(req('GET', '/usuals'), env)).json()).usuals;
+  assert.deepEqual(await get(), {});
+  const put = (key, product) => handle(req('PUT', '/usuals', { body: { key, product } }), env);
+  const cheese = { upc: '0004114320050', description: 'Tillamook Medium Cheddar Shredded Cheese', brand: 'Tillamook', size: '8 oz', image: 'https://img.example/t.jpg', price: 4.5, extra: 'x' };
+  let res = await (await put('shredded cheddar', cheese)).json();
+  assert.deepEqual(Object.keys(res.usuals['shredded cheddar']).sort(), ['at', 'brand', 'description', 'image', 'size', 'upc'], 'only the fields it needs');
+  await put('milk', { upc: '0001111041700', description: 'Kroger 2% Milk', image: 'javascript:alert(1)' });
+  assert.equal((await get()).milk.image, null);
+  await put('milk', { upc: '0001111041600', description: 'Kroger Whole Milk' });
+  assert.equal((await get()).milk.description, 'Kroger Whole Milk', 'replaced');
+  res = await (await put('milk', null)).json();
+  assert.deepEqual(Object.keys(res.usuals), ['shredded cheddar']);
+  assert.equal((await put('', cheese)).status, 400);
+  assert.equal((await put('eggs', { upc: 'abc', description: 'Eggs' })).status, 400);
+  assert.equal((await put('eggs', { upc: '0001111060903' })).status, 400);
 });
 
 test('product search retries Kroger 429s and reports persistent errors per term', async () => {

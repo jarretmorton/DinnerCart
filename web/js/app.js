@@ -5,7 +5,7 @@ import { LIGHT_MODEL, createGemini, createModelSwitch } from './gemini.js';
 import { findStores as findStoresNearby, lastDirectProblem, lastSearchRoute, productSearcher, resetDirectSearch } from './kroger.js';
 import { createRelay } from './relay.js';
 import { findRecipes, scaleFor } from './recipes.js';
-import { MAX_CANDIDATES, estimateTotal, heuristicPick, resolveIngredients, setPackages } from './resolver.js';
+import { MAX_CANDIDATES, estimateTotal, heuristicPick, itemKey, resolveIngredients, setPackages } from './resolver.js';
 import * as storage from './storage.js';
 import { summarizeNeeds } from './units.js';
 import { escapeHtml as h, money } from './util.js';
@@ -405,7 +405,7 @@ function renderShoppingList() {
 
 function itemRow(item) {
   const p = item.candidates[item.choice];
-  const options = item.candidates.map((c, i) => `<option value="${i}" ${i === item.choice ? 'selected' : ''}>${h(c.description)}${c.size ? ` · ${h(c.size)}` : ''}${c.price ? ` · ${money(c.promoPrice || c.price)}` : ''}${c.inStock === false ? ' · out of stock' : ''}</option>`).join('');
+  const options = item.candidates.map((c, i) => `<option value="${i}" ${i === item.choice ? 'selected' : ''}>${h(c.description)}${c.size ? ` · ${h(c.size)}` : ''}${c.price ? ` · ${money(c.promoPrice || c.price)}` : ''}${c.inStock === false ? ' · out of stock' : ''}${c.usual ? ' · your usual' : ''}</option>`).join('');
   const lines = item.needs.map((n) => `<li>${h(n.text)} <span class="muted">(${h(n.recipe)})</span></li>`).join('');
   return `
     <div class="item ${p ? '' : 'nomatch'}" data-key="${h(item.key)}">
@@ -415,7 +415,7 @@ function itemRow(item) {
         ${item.candidates.length
           ? `<select data-action="swap" data-key="${h(item.key)}" aria-label="Product">${options}<option value="-1" ${item.choice === -1 ? 'selected' : ''}>— none of these —</option></select>`
           : `<div class="product-meta">${item.searchError ? `Fred Meyer search failed: ${h(item.searchError)}` : 'No products found. Try another search below.'}</div>`}
-        ${p ? `<div class="product-meta">${[p.brand, p.size, p.price && money(p.promoPrice || p.price) + (p.promoPrice ? ' sale' : ''), p.aisle, p.inStock === false && '⚠ out of stock', item.reason].filter(Boolean).map(h).join(' · ')}</div>` : ''}
+        ${p ? `<div class="product-meta">${[p.brand, p.size, p.price && money(p.promoPrice || p.price) + (p.promoPrice ? ' sale' : ''), p.aisle, p.inStock === false && '⚠ out of stock', item.reason, p.usual && !/usual/i.test(item.reason || '') && 'your usual'].filter(Boolean).map(h).join(' · ')}</div>` : ''}
         <details ${p ? '' : 'open'}><summary>Recipe lines · search again</summary>
           <ul>${lines}</ul>
           <span class="row"><input value="${h(item.searchTerm)}" data-search-for="${h(item.key)}" aria-label="Search term"><button class="small" data-action="research" data-key="${h(item.key)}">Search</button></span>
@@ -443,9 +443,13 @@ async function buildCart() {
   }
   await guarded(status, async () => {
     const recipes = state.selected.map((s) => ({ name: s.recipe.name, ingredients: s.recipe.ingredients || [], scale: scaleFor(s.recipe, s.servings) }));
+    // Without the usuals (relay hiccup) the list still builds, just without them.
+    usuals = (await relay().usuals().catch(() => ({ usuals }))).usuals || {};
     const result = await resolveIngredients({
       recipes,
       pantry: prefs.pantry || [],
+      preferences: prefs.shoppingPrefs || [],
+      usuals,
       gemini: gemini(),
       searchProducts: productSearcher(relay(), prefs.store.locationId),
       onProgress: (t) => setStatus(status, t),
@@ -627,6 +631,7 @@ function renderSettings() {
   const pf = $('#prefs-form');
   pf.elements.pantry.value = (prefs.pantry || []).join('\n');
   pf.elements.leaveOut.value = (prefs.leaveOut || []).join('\n');
+  pf.elements.shoppingPrefs.value = (prefs.shoppingPrefs || []).join('\n');
   pf.elements.modality.value = prefs.modality || 'PICKUP';
   pf.elements.minRating.value = String(prefs.minRating ?? storage.DEFAULT_MIN_RATING);
   pf.elements.maxMinutes.value = prefs.maxMinutes ? String(prefs.maxMinutes) : '';
@@ -637,7 +642,10 @@ function renderSettings() {
   $('#store-current').innerHTML = prefs.store
     ? `Store: <strong>${h(prefs.store.name)}</strong> <span class="muted small-text">${h(prefs.store.address || '')} · #${h(prefs.store.locationId)}</span>`
     : '<span class="notice">No store chosen yet.</span>';
-  if (configured()) refreshKrogerStatus();
+  if (configured()) {
+    refreshKrogerStatus();
+    loadUsuals();
+  }
 }
 
 async function refreshKrogerStatus() {
@@ -669,6 +677,39 @@ async function loadRemotePrefs() {
   } catch (err) {
     console.warn('prefs load failed', err);
   }
+}
+
+// ---------------------------------------------------------------- usuals
+
+// The product the household chose for each shopping item (shared on the
+// relay). Picking a product on the shopping list makes it the usual; Match
+// offers it first next time.
+let usuals = null;
+
+function rememberUsual(item, product) {
+  item.candidates.forEach((c) => { c.usual = c === product; });
+  item.reason = 'your choice · now your usual';
+  relay().usualSet(itemKey(item.name), product)
+    .then((r) => { usuals = r.usuals; renderUsuals(); })
+    .catch((err) => toast(`Couldn't remember it as your usual: ${err.message}`, 'error'));
+}
+
+async function loadUsuals() {
+  try {
+    usuals = (await relay().usuals()).usuals || {};
+  } catch (err) {
+    $('#usuals').innerHTML = `<li class="muted">Couldn't load them: ${h(err.message)}</li>`;
+    return;
+  }
+  renderUsuals();
+}
+
+function renderUsuals() {
+  const entries = Object.entries(usuals || {}).sort(([a], [b]) => a.localeCompare(b));
+  $('#usuals').innerHTML = entries.length
+    ? entries.map(([name, u]) => `<li><span><strong>${h(name)}</strong> <span class="muted">${h(u.description)}${u.size ? ` · ${h(u.size)}` : ''}</span></span>
+        <button type="button" class="clear" data-action="forget-usual" data-key="${h(name)}" aria-label="Forget the usual for ${h(name)}">${icon('trash')}</button></li>`).join('')
+    : '<li class="muted">None yet.</li>';
 }
 
 async function savePrefsRemote(patch) {
@@ -774,6 +815,11 @@ document.addEventListener('click', async (e) => {
     }
     case 'remove-item': findItem(key).removed = true; break;
     case 'restore-item': findItem(key).removed = false; break;
+    case 'forget-usual':
+      return guarded(null, async () => {
+        usuals = (await relay().usualSet(key, null)).usuals;
+        renderUsuals();
+      });
     case 'research': {
       const term = document.querySelector(`[data-search-for="${CSS.escape(key)}"]`).value.trim();
       if (!term) return;
@@ -798,7 +844,9 @@ document.addEventListener('change', (e) => {
   if (el.dataset.action === 'swap') {
     const item = findItem(el.dataset.key);
     item.choice = Number(el.value);
+    const product = item.candidates[item.choice];
     item.reason = item.choice === item.geminiChoice ? item.reason : 'your choice';
+    if (product && !product.usual) rememberUsual(item, product);
     setPackages(item);
     persist();
     renderShoppingList();
@@ -903,6 +951,7 @@ $('#prefs-form').addEventListener('submit', (e) => {
     await savePrefsRemote({
       pantry,
       leaveOut: lines(f.leaveOut.value),
+      shoppingPrefs: lines(f.shoppingPrefs.value),
       modality: f.modality.value,
       minRating: Number(f.minRating.value),
       maxMinutes: Number(f.maxMinutes.value) || null,

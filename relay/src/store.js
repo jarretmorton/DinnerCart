@@ -8,6 +8,7 @@
 //   products:<hash>    cached Kroger product searches per store + term (6 hours)
 //   library            saved recipe library (one JSON array, with each recipe's Cook steps)
 //   prefs              shared household preferences (store, pantry, rating floor, daily ideas, ...)
+//   usuals             the product the household chose for each shopping item, by item name
 import { HttpError, sha256Hex } from './http.js';
 
 export const DAY = 86400;
@@ -144,10 +145,49 @@ const PREF_FIELDS = {
   easy: (v) => typeof v === 'boolean',
   easyMaxIngredients: (v) => Number.isInteger(v) && v >= 1 && v <= 50,
   easyMaxSteps: (v) => Number.isInteger(v) && v >= 1 && v <= 50,
+  // "Organic produce", "Tillamook cheese", "2% milk": steers product picks.
+  shoppingPrefs: (v) => Array.isArray(v) && v.every((s) => typeof s === 'string' && s.length <= 200),
   // Today's Gemini-written "What sounds good?" ideas, shared by both devices.
   dailyIdeas: (v) => typeof v === 'object' && v !== null && /^\d{4}-\d{2}-\d{2}$/.test(v.date)
     && Array.isArray(v.ideas) && v.ideas.length <= 50 && v.ideas.every((s) => typeof s === 'string' && s.length <= 80),
 };
+
+// ---- usuals: when someone swaps a product on the shopping list, that
+// product becomes the household's usual for the item and is offered first
+// next time. Set one at a time so two phones don't overwrite each other.
+
+const MAX_USUALS = 300;
+
+export async function usualsGet(env) {
+  return (await getJson(env, 'usuals')) || {};
+}
+
+// product null forgets the item's usual.
+export async function usualSet(env, key, product) {
+  const name = str(key, 80);
+  if (!name) throw new HttpError(400, 'bad_usual', 'Missing item name.');
+  if (product !== null && !(product && /^\d{6,14}$/.test(String(product.upc || '')) && str(product.description, 200))) {
+    throw new HttpError(400, 'bad_usual', 'A usual needs a product with a numeric UPC and a description.');
+  }
+  const usuals = await usualsGet(env);
+  if (product === null) {
+    delete usuals[name];
+  } else {
+    usuals[name] = {
+      upc: String(product.upc),
+      description: str(product.description, 200),
+      brand: str(product.brand, 80),
+      size: str(product.size, 40),
+      image: /^https:\/\//.test(product.image || '') ? product.image.slice(0, 500) : null,
+      at: new Date().toISOString(),
+    };
+    // Keep the most recent ones.
+    const keys = Object.keys(usuals).sort((a, b) => (usuals[b].at || '').localeCompare(usuals[a].at || ''));
+    for (const old of keys.slice(MAX_USUALS)) delete usuals[old];
+  }
+  await putJson(env, 'usuals', usuals);
+  return usuals;
+}
 
 export async function prefsGet(env) {
   return (await getJson(env, 'prefs')) || {};

@@ -303,3 +303,66 @@ test('New: queries and ranking aim away from saved recipes, still honoring input
   await generateQueries(gemini, {}, { liked: [], novel: true });
   assert.match(prompts[0], /three clearly different cuisines/, 'nothing saved yet');
 });
+
+test('shopping preferences and usuals: extra searches, usual first, both in the prompts', async () => {
+  const gemini = fakeGemini({
+    normalized: {
+      '2 cups baby spinach': [{ name: 'baby spinach', searchTerm: 'baby spinach', preferredSearch: 'organic baby spinach', quantity: 2, unit: 'cup' }],
+      '1 cup shredded cheddar': [{ name: 'shredded cheddar', searchTerm: 'shredded cheddar', preferredSearch: 'Shredded Cheddar', quantity: 1, unit: 'cup' }],
+      '1 cup milk': [{ name: 'milk', searchTerm: 'milk', quantity: 1, unit: 'cup' }],
+    },
+    pick: (name) => ({ choice: 0, packages: 1, reason: name === 'baby spinach' ? 'organic, per your preferences' : 'your usual' }),
+  });
+  const CAT = {
+    'baby spinach': [product('10', 'Kroger Baby Spinach', '5 oz', 2.5), product('11', 'Simple Truth Organic Baby Spinach', '5 oz', 3.5)],
+    'organic baby spinach': [product('11', 'Simple Truth Organic Baby Spinach', '5 oz', 3.5), product('12', 'Earthbound Organic Baby Spinach', '5 oz', 4.5)],
+    'shredded cheddar': [product('20', 'Kroger Shredded Cheddar', '8 oz', 2.5)],
+    milk: [product('30', 'Kroger 2% Milk', '1 gal', 3.5)],
+    'Tillamook Medium Cheddar Shredded Cheese': [product('21', 'Tillamook Medium Cheddar Shredded Cheese', '8 oz', 4.5), product('20', 'Kroger Shredded Cheddar', '8 oz', 2.5)],
+    'Organic Valley Whole Milk': [product('31', 'Organic Valley 2% Milk', '1 gal', 6)],
+  };
+  const searched = [];
+  const searchProducts = async (terms) => { searched.push(...terms); return Object.fromEntries(terms.map((t) => [t, CAT[t] || []])); };
+  const { items } = await resolveIngredients({
+    recipes: [{ name: 'Bowl', ingredients: ['2 cups baby spinach', '1 cup shredded cheddar', '1 cup milk'] }],
+    preferences: ['organic produce', 'Tillamook cheese'],
+    usuals: {
+      'shredded cheddar': { upc: '21', description: 'Tillamook Medium Cheddar Shredded Cheese' },
+      milk: { upc: '99', description: 'Organic Valley Whole Milk' },
+    },
+    gemini,
+    searchProducts,
+  });
+  const by = Object.fromEntries(items.map((i) => [i.name, i]));
+
+  assert.match(gemini.calls[0].prompt, /Household shopping preferences:\norganic produce\nTillamook cheese/);
+  assert.match(gemini.calls[1].prompt, /^Household shopping preferences:\n- organic produce\n- Tillamook cheese\n\n### id 0/);
+  assert.ok(searched.includes('organic baby spinach'), 'searched for the preferred version');
+  assert.equal(by['shredded cheddar'].preferredSearch, null, 'same as the plain search: no extra search');
+
+  // Preferred results join the plain ones, deduped, preferred first.
+  assert.deepEqual(by['baby spinach'].candidates.map((c) => c.upc), ['11', '12', '10']);
+  assert.equal(by['baby spinach'].reason, 'organic, per your preferences');
+
+  // The usual goes first, marked, and Gemini is told.
+  assert.deepEqual(by['shredded cheddar'].candidates.map((c) => [c.upc, Boolean(c.usual)]), [['21', true], ['20', false]]);
+  assert.match(gemini.calls[1].prompt, /\[0\] Kroger Tillamook Medium Cheddar Shredded Cheese \| 8 oz \| \$4\.50 \| HOUSEHOLD USUAL/);
+  assert.match(gemini.calls[1].system, /HOUSEHOLD USUAL is what this household chose/);
+
+  // A usual this store doesn't carry is noted, not offered.
+  assert.deepEqual(by.milk.candidates.map((c) => c.upc), ['30']);
+  assert.equal(by.milk.reason, "your usual · your usual isn't at this store");
+});
+
+test('no preferences: prompts say so and nothing extra is searched', async () => {
+  const gemini = fakeGemini({ normalized: NORMALIZED, pick: () => ({ choice: 0, packages: 1, reason: 'ok' }) });
+  const searched = [];
+  await resolveIngredients({
+    recipes: [{ name: 'Chili', ingredients: ['1 (15 oz) can black beans, drained'] }],
+    gemini,
+    searchProducts: async (terms) => { searched.push(...terms); return Object.fromEntries(terms.map((t) => [t, CATALOG[t] || []])); },
+  });
+  assert.match(gemini.calls[0].prompt, /Household shopping preferences:\n\(none\)/);
+  assert.match(gemini.calls[1].prompt, /^### id 0/);
+  assert.deepEqual(searched, ['black beans']);
+});

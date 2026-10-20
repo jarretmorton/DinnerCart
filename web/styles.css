@@ -118,6 +118,11 @@ fieldset input { width: auto; }
 .search-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .search-actions button { padding-left: 8px; padding-right: 8px; gap: 5px; white-space: nowrap; min-width: 0; }
 .hint { margin: -6px 0 0; font-size: 0.85rem; color: var(--muted); }
+.field-label { font-size: 0.9rem; color: var(--muted); }
+.usuals-hint { margin: 2px 0 6px; }
+.usuals { list-style: none; margin: 0; padding: 0; }
+.usuals li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; border-top: 1px dashed var(--rule); font-size: 0.92rem; }
+.usuals li:first-child { border-top: 0; }
 .inline-check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); cursor: pointer; }
 .inline-check input { width: auto; accent-color: var(--basil); }
 /* A checkbox in a box shaped like the fields beside it (Easy): it's a setting, not a button. */
