@@ -19,7 +19,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export const TIMEOUT_MS = 30_000;
 // ...and one that hasn't started answering by then is treated as stuck.
 // Match and Cook opt out of this one (null) for now.
-export const START_TIMEOUT_MS = 5_000;
+// 5 s was too tight: the strong model often thinks longer before it starts.
+export const START_TIMEOUT_MS = 15_000;
 // A limit that lifts later than this is the free tier's daily limit, not
 // the per-minute one: no point waiting for it.
 const LONG_WAIT_MS = 120_000;
