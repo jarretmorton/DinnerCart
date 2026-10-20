@@ -242,6 +242,12 @@ Fred Meyer, grouped into **This week** (weeks start Monday), **Last week**,
 asks to confirm). Add any recipe by
 pasting its link at the bottom.
 
+Give each saved recipe a **family rating**: tap the happy (*Loved it*), meh
+(*It was OK*) or sad (*Not again*) face on its card, and tap it again to
+clear it. It's one rating for the household, shared by both phones, and it
+shows on the recipe in Search results too. **Suggest** leans toward dishes
+like the ones you loved and steers clear of anything like the ones you didn't.
+
 ### Cook
 
 - Gemini rewrites the recipe page's own steps into one action per step, plus
@@ -366,6 +372,7 @@ All routes need `X-Relay-Password`, except the OAuth callback.
 | `POST /kroger/disconnect` | | forgets the stored tokens |
 | `GET/POST/DELETE /library` | `{recipe}` / `?id=` | shared recipe library (`savedAt`, `lastPickedAt`, `pickedCount` and Cook steps per recipe) |
 | `POST /library/picked` | `{recipes: [..≤20]}` | saves recipes just sent to the cart and records the pick; returns the library |
+| `POST /library/rating` | `{id, rating}` (`happy`, `meh`, `sad` or `null`) | sets or clears a saved recipe's family rating (`familyRating`, `ratedAt`) |
 | `GET/PUT /prefs` | `{prefs: {store, pantry, leaveOut, shoppingPrefs, modality, minRating, maxMinutes, servings, easy, easyMaxIngredients, easyMaxSteps, dailyIdeas}}` | shared household settings |
 | `GET /usuals` | | `{usuals: {item name: {upc, description, brand, size, image, at}}}` |
 | `PUT /usuals` | `{key, product}` (`product: null` forgets it) | sets one item's usual product (keeps the latest 300) |
@@ -386,7 +393,7 @@ the original page's instructions, and always links to the source page.
 ## Credits
 
 - Fonts: [Fraunces](https://github.com/undercasetype/Fraunces) and [Inter](https://github.com/rsms/inter), both under the SIL Open Font License, self-hosted in `web/fonts/`.
-- Icons: drawn for DinnerCart, except the feather (Light model), which is from [Tabler Icons](https://tabler.io/icons) (MIT License, © 2020-2024 Paweł Kuna).
+- Icons: drawn for DinnerCart, except the feather (Light model) and the three family-rating faces (mood-happy, mood-empty, mood-sad), which are from [Tabler Icons](https://tabler.io/icons) (MIT License, © 2020-2024 Paweł Kuna).
 
 ## Build plan status
 

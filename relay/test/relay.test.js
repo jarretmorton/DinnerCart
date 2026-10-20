@@ -361,3 +361,22 @@ test('product search retries Kroger 429s and reports persistent errors per term'
   assert.deepEqual(results.broken, []);
   assert.match(errors.broken, /returned 400: \{"errors"/);
 });
+
+test('family rating on a saved recipe: set, change, clear, kept on re-save, validated', async () => {
+  const env = makeEnv();
+  const recipe = { url: 'https://x.example/chili', name: 'Chili', ingredients: ['beans'] };
+  const { id } = (await (await handle(req('POST', '/library', { body: { recipe } }), env)).json()).recipe;
+  const rate = (rating, rid = id) => handle(req('POST', '/library/rating', { body: { id: rid, rating } }), env);
+  let r = (await (await rate('happy')).json()).recipe;
+  assert.equal(r.familyRating, 'happy');
+  assert.ok(r.ratedAt);
+  r = (await (await rate('sad')).json()).recipe;
+  assert.equal(r.familyRating, 'sad');
+  await handle(req('POST', '/library', { body: { recipe: { ...recipe, name: 'Chili!' } } }), env);
+  let list = (await (await handle(req('GET', '/library'), env)).json()).recipes;
+  assert.equal(list[0].familyRating, 'sad', 're-saving keeps the rating');
+  r = (await (await rate(null)).json()).recipe;
+  assert.equal('familyRating' in r, false, 'cleared');
+  assert.equal((await rate('great')).status, 400);
+  assert.equal((await rate('happy', 'nope')).status, 404);
+});

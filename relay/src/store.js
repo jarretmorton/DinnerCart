@@ -45,6 +45,7 @@ const LIBRARY_MAX = 500;
 //   savedAt        when it entered the library
 //   lastPickedAt   when it was last sent to the Fred Meyer cart
 //   pickedCount    how many times it has been sent
+//   familyRating   the household's verdict: 'happy', 'meh' or 'sad' (or absent)
 export async function libraryList(env) {
   return (await getJson(env, LIBRARY_KEY)) || [];
 }
@@ -85,6 +86,25 @@ export async function libraryPicked(env, recipes) {
   }
   const now = new Date().toISOString();
   return libraryUpsert(env, recipes, (prev) => ({ savedAt: prev.savedAt || now, lastPickedAt: now, pickedCount: (prev.pickedCount || 0) + 1 }));
+}
+
+export const FAMILY_RATINGS = ['happy', 'meh', 'sad'];
+
+// Set (or with null, clear) one saved recipe's family rating.
+export async function libraryRate(env, id, rating) {
+  if (rating !== null && !FAMILY_RATINGS.includes(rating)) throw new HttpError(400, 'bad_rating', 'Rating must be happy, meh, sad or null.');
+  const list = await libraryList(env);
+  const entry = list.find((r) => r.id === id);
+  if (!entry) throw new HttpError(404, 'not_found', 'That recipe is no longer saved.');
+  if (rating) {
+    entry.familyRating = rating;
+    entry.ratedAt = new Date().toISOString();
+  } else {
+    delete entry.familyRating;
+    delete entry.ratedAt;
+  }
+  await putJson(env, LIBRARY_KEY, list);
+  return entry;
 }
 
 export async function libraryDelete(env, id) {

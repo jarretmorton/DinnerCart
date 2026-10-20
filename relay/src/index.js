@@ -8,7 +8,7 @@ import { corsHeaders, requirePassword } from './auth.js';
 import { HttpError, errorResponse, json, readJson } from './http.js';
 import * as kroger from './kroger.js';
 import { fetchRecipe, searchMany } from './search.js';
-import { libraryDelete, libraryList, libraryPicked, librarySave, prefsGet, prefsUpdate, usualSet, usualsGet } from './store.js';
+import { libraryDelete, libraryList, libraryPicked, libraryRate, librarySave, prefsGet, prefsUpdate, usualSet, usualsGet } from './store.js';
 
 const routes = {
   'GET /health': async (_req, env) => ({
@@ -72,6 +72,12 @@ const routes = {
     const body = await readJson(req);
     await libraryPicked(env, body.recipes);
     return { recipes: await libraryList(env) };
+  },
+
+  // The family's verdict on a saved recipe: happy, meh, sad, or null to clear.
+  'POST /library/rating': async (req, env) => {
+    const body = await readJson(req);
+    return { recipe: await libraryRate(env, String(body.id || ''), body.rating ?? null) };
   },
 
   'DELETE /library': async (req, env) => {

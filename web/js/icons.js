@@ -16,6 +16,11 @@ const PATHS = {
   bookmark: '<path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4.2L6 20V5a1 1 0 0 1 1-1z"/>',
   // Frying pan with steam (Cook).
   pan: '<path d="M2.5 11.8h14v1.8a4.6 4.6 0 0 1-4.6 4.6H7.1a4.6 4.6 0 0 1-4.6-4.6z"/><path d="M16.5 13.1l5-1.6"/><path d="M6.3 9.2c-1.2-1.3 1.2-2.6 0-4.2M9.5 9.2c-1.2-1.3 1.2-2.6 0-4.2M12.7 9.2c-1.2-1.3 1.2-2.6 0-4.2"/>',
+  // Family rating faces on saved recipes: Tabler Icons mood-happy, mood-empty
+  // and mood-sad (MIT License, (c) 2020-2024 Paweł Kuna, https://tabler.io/icons).
+  happy: '<path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/><path d="M9 9l.01 0"/><path d="M15 9l.01 0"/><path d="M8 13a4 4 0 1 0 8 0h-8"/>',
+  meh: '<path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/><path d="M9 10l.01 0"/><path d="M15 10l.01 0"/><path d="M9 15l6 0"/>',
+  sad: '<path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/><path d="M9 10l.01 0"/><path d="M15 10l.01 0"/><path d="M9.5 15.25a3.5 3.5 0 0 1 5 0"/>',
   // Model toggle: Strong (anvil) and Light (feather).
   anvil: '<path d="M8 5.5h13v4h-4.6l-.9 3.8 2.8 2.6v3.6H6.7v-3.6l2.8-2.6-.9-3.8C5.8 9.5 3.6 8.6 2.5 6.6 4 5.9 5.8 5.5 8 5.5z"/>',
   // Feather from Tabler Icons (MIT License, (c) 2020-2024 Paweł Kuna, https://tabler.io/icons).

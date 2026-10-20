@@ -196,6 +196,19 @@ function renderTray(view = location.hash.slice(1)) {
 // Solid Cook = steps already written (saved with the recipe or on this phone).
 const hasCook = (url) => Boolean(savedEntry(url)?.cook || storage.loadCook(url));
 
+// The family's verdict on a saved recipe: the faces on Save tab cards.
+const FACES = [['happy', 'Loved it'], ['meh', 'It was OK'], ['sad', 'Not again']];
+const faceLabel = Object.fromEntries(FACES);
+
+function familyRating(recipe, libraryId) {
+  const current = recipe.familyRating;
+  return `<div class="family-rating" role="group" aria-label="Family rating">
+      <span class="muted small-text">Family</span>
+      ${FACES.map(([face, label]) => `<button type="button" class="face ${face} ${current === face ? 'on' : ''}" data-action="rate" data-id="${h(libraryId)}" data-rating="${face}" aria-pressed="${current === face}" title="${label}" aria-label="${label}">${icon(face)}</button>`).join('')}
+      ${current ? `<span class="small-text">${faceLabel[current]}</span>` : ''}
+    </div>`;
+}
+
 function recipeCard(recipe, { reason, libraryId } = {}) {
   const picked = isPicked(recipe.url);
   const saved = savedEntry(recipe.url);
@@ -205,6 +218,8 @@ function recipeCard(recipe, { reason, libraryId } = {}) {
     `<span>${icon('people')} ${recipe.servings ? `serves ${h(recipe.servings)}` : 'servings ?'}</span>`,
     recipe.rating && `<span>${icon('star', { filled: true })} ${h(recipe.rating.value)}${recipe.rating.count ? ` (${h(recipe.rating.count)})` : ''}</span>`,
     recipe.nutrition?.caloriesNumber && `<span>${icon('flame')} ${h(recipe.nutrition.caloriesNumber)} cal</span>`,
+    // A saved recipe turning up in Search shows the family's verdict.
+    !libraryId && saved?.familyRating && `<span title="Family rating">${icon(saved.familyRating)} ${faceLabel[saved.familyRating]}</span>`,
   ].filter(Boolean).join('');
   return `
     <article class="card recipe ${picked ? 'selected' : ''}">
@@ -215,6 +230,7 @@ function recipeCard(recipe, { reason, libraryId } = {}) {
         <h3>${h(recipe.name)}</h3>
         <div class="meta">${meta}</div>
         ${reason ? `<div class="why">${h(reason)}</div>` : ''}
+        ${libraryId ? familyRating(recipe, libraryId) : ''}
         <details><summary>${plural((recipe.ingredients || []).length, 'ingredient')}</summary>
           <ul>${(recipe.ingredients || []).map((i) => `<li>${h(i)}</li>`).join('')}</ul>
         </details>
@@ -872,6 +888,24 @@ document.addEventListener('click', async (e) => {
     case 'toggle-pick': return togglePick(url);
     case 'save': return saveRecipe(url);
     case 'cook': return openCook(url);
+    case 'rate': {
+      // Tap a face to set it, tap it again to clear it. Shown at once, then saved.
+      const entry = library?.find((r) => r.id === id);
+      if (!entry) return;
+      const before = entry.familyRating ?? null;
+      const next = before === btn.dataset.rating ? null : btn.dataset.rating;
+      entry.familyRating = next ?? undefined;
+      renderLibrary();
+      try {
+        const updated = (await relay().libraryRate(id, next)).recipe;
+        library = library.map((r) => (r.id === updated.id ? updated : r));
+      } catch (err) {
+        entry.familyRating = before ?? undefined;
+        renderLibrary();
+        toast(`Couldn't save the rating: ${err.message}`, 'error');
+      }
+      return;
+    }
     case 'lib-delete':
       await painted();
       if (!confirm('Remove this recipe from Save (for both of you)?')) return syncButtons();

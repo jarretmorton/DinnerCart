@@ -15,10 +15,15 @@ export function describeCriteria(c) {
 }
 
 // Saved recipes summarized as a taste profile for recommendations.
+// The family's rating on a saved recipe, as Gemini reads it.
+const VERDICT = { happy: 'family loved it', meh: 'family thought it was OK', sad: "family didn't like it" };
+// For Suggest: how to use those ratings.
+const VERDICT_RULE = 'Lean toward dishes like the ones marked "family loved it", and steer clear of anything like the ones marked "family didn\'t like it".';
+
 export function describeTaste(liked) {
   return liked.slice(0, 40).map((r) => {
     const tags = [...(r.cuisine || []), ...(r.category || []), ...(r.keywords || []).slice(0, 6)];
-    return `- ${r.name}${tags.length ? ` (${[...new Set(tags)].join(', ')})` : ''}`;
+    return `- ${r.name}${tags.length ? ` (${[...new Set(tags)].join(', ')})` : ''}${VERDICT[r.familyRating] ? ` [${VERDICT[r.familyRating]}]` : ''}`;
   }).join('\n');
 }
 
@@ -38,7 +43,7 @@ export async function generateQueries(gemini, criteria, { liked, novel = false }
   } else if (!liked) {
     prompt = `Write 3 different web search queries that will find free recipe pages matching:\n${extra}\n\n${rules} (e.g. a specific dish, a key ingredient, a style).`;
   } else if (liked.length) {
-    prompt = `A couple wants dinner ideas they'll probably like. Recipes they've saved (their taste):\n${describeTaste(liked)}\n${extra ? `\nThey also said:\n${extra}\n` : ''}\nWrite 3 different web search queries for NEW dishes they'd likely enjoy: related in cuisine, flavors or main ingredients to what they've saved, but not the same dishes. Mix it up: one close to their favorites, one from a neighboring cuisine, one a fresh take on an ingredient they use often. ${rules}`;
+    prompt = `A couple wants dinner ideas they'll probably like. Recipes they've saved (their taste):\n${describeTaste(liked)}\n${extra ? `\nThey also said:\n${extra}\n` : ''}\nWrite 3 different web search queries for NEW dishes they'd likely enjoy: related in cuisine, flavors or main ingredients to what they've saved, but not the same dishes. ${VERDICT_RULE} Mix it up: one close to their favorites, one from a neighboring cuisine, one a fresh take on an ingredient they use often. ${rules}`;
   } else {
     prompt = `A couple wants dinner ideas. They haven't saved any recipes yet, so suggest popular, well-loved weeknight dinners with variety.${extra ? `\nThey said:\n${extra}` : ''}\n\nWrite 3 different web search queries. ${rules}`;
   }
@@ -121,7 +126,7 @@ export async function rankRecipes(gemini, recipes, criteria, { liked, novel = fa
     novel
       ? `A couple wants to try something new.${liked?.length ? ` Recipes they've saved (what they usually cook):\n${describeTaste(liked)}\n` : '\n'}${said ? `\nThey also said:\n${said}\n` : ''}\nCandidate recipes:\n${list}\n\nScore each recipe 0-100: favor recipes clearly unlike what they've saved (a different cuisine, main ingredient or cooking method) that still fit anything they said, then ratings with many reviews. Near-copies of a saved recipe score below 20. Recipes that clearly contain an excluded ingredient score below 10. Give a one-sentence reason that says what's new about it for them.`
       : liked?.length
-      ? `A couple is choosing what to cook. Recipes they've saved (their taste):\n${describeTaste(liked)}\n${describeCriteria(criteria) ? `\nThey also said:\n${describeCriteria(criteria)}\n` : ''}\nCandidate recipes:\n${list}\n\nScore each recipe 0-100 for how likely they are to enjoy it given their taste (and anything they said), favoring variety over near-copies of what they've saved, then ratings with many reviews. Recipes that clearly contain an excluded ingredient score below 10. Give a one-sentence reason that connects it to their taste.`
+      ? `A couple is choosing what to cook. Recipes they've saved (their taste):\n${describeTaste(liked)}\n${describeCriteria(criteria) ? `\nThey also said:\n${describeCriteria(criteria)}\n` : ''}\nCandidate recipes:\n${list}\n\nScore each recipe 0-100 for how likely they are to enjoy it given their taste (and anything they said), favoring variety over near-copies of what they've saved, then ratings with many reviews. ${VERDICT_RULE} Recipes that clearly contain an excluded ingredient score below 10. Give a one-sentence reason that connects it to their taste.`
       : `A couple is choosing what to cook. Their request:\n${describeCriteria(criteria) || 'Anything good for dinner'}\n\nCandidate recipes:\n${list}\n\nScore each recipe 0-100 for how well it fits the request (fit matters most, then ratings with many reviews, then a reasonable ingredient list). Recipes that clearly contain an excluded ingredient score below 10. Give a one-sentence reason a person would find useful (what makes it a good or poor fit).`,
     S.obj({ ranking: S.arr(S.obj({ index: S.int(), score: S.int(), reason: S.str() })) }),
   );

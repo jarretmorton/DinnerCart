@@ -41,6 +41,8 @@ export function createRelay({ url, password, fetchImpl = globalThis.fetch.bind(g
     cartAdd: (items, modality) => call('POST', '/kroger/cart', { items, modality }),
     krogerStatus: () => call('GET', '/kroger/status'),
     krogerToken: () => call('GET', '/kroger/token'),
+    // rating: 'happy' | 'meh' | 'sad', or null to clear it.
+    libraryRate: (id, rating) => call('POST', '/library/rating', { id, rating }),
     usuals: () => call('GET', '/usuals'),
     // product null forgets it.
     usualSet: (key, product) => call('PUT', '/usuals', { key, product }),

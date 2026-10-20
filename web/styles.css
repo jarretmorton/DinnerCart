@@ -173,6 +173,13 @@ button[hidden] { display: none; }
 .meta span { display: inline-flex; align-items: center; gap: 4px; }
 .why { font-size: 0.92rem; font-style: italic; color: var(--text); opacity: 0.85; }
 .recipe details { font-size: 0.85rem; color: var(--muted); }
+/* Family rating on saved recipes: three faces, the chosen one tinted
+   (green loved it, red not again). */
+.family-rating { display: flex; align-items: center; gap: 6px; }
+.family-rating .face { width: 36px; height: 36px; padding: 0; border-radius: 50%; color: var(--muted); font-size: 1.15rem; }
+.family-rating .face.happy.on { background: var(--basil-soft); border-color: var(--basil); color: var(--basil); }
+.family-rating .face.meh.on { background: var(--line); border-color: var(--muted); color: var(--text); }
+.family-rating .face.sad.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .recipe details ul { padding-left: 18px; margin: 6px 0; }
 .recipe .buttons { display: flex; gap: 8px; margin-top: auto; padding-top: 6px; }
 .recipe .buttons button { flex: 1; min-width: 0; padding-left: 10px; padding-right: 10px; }

@@ -366,3 +366,18 @@ test('no preferences: prompts say so and nothing extra is searched', async () =>
   assert.match(gemini.calls[1].prompt, /^### id 0/);
   assert.deepEqual(searched, ['black beans']);
 });
+
+test('family ratings show in the taste profile and steer Suggest', async () => {
+  const { describeTaste, generateQueries } = await import('../web/js/recipes.js');
+  const liked = [
+    { name: 'Chicken Tikka', cuisine: ['Indian'], familyRating: 'happy' },
+    { name: 'Liver and Onions', familyRating: 'sad' },
+    { name: 'Plain Pasta', familyRating: 'meh' },
+    { name: 'Tacos' },
+  ];
+  assert.equal(describeTaste(liked), "- Chicken Tikka (Indian) [family loved it]\n- Liver and Onions [family didn't like it]\n- Plain Pasta [family thought it was OK]\n- Tacos");
+  let prompt;
+  const gemini = { json: async (p) => { prompt = p; return { queries: ['a recipe'] }; } };
+  await generateQueries(gemini, {}, { liked });
+  assert.match(prompt, /Lean toward dishes like the ones marked "family loved it", and steer clear of anything like the ones marked "family didn't like it"\./);
+});
