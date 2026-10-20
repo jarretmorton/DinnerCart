@@ -103,7 +103,7 @@
             <label><input type="radio" name="modelTier" value="light"><span data-icon="feather"></span> Light</label>
           </div>
         </fieldset>
-        <p class="wide hint">Each visit starts on Strong. If Strong hits Gemini's rate limit, this switches to Light by itself until you reload. You can also switch it by hand. Takes effect immediately.</p>
+        <p class="wide hint">Each visit starts on Strong. If Strong hits Gemini's limit, doesn't answer within 30 seconds or is overloaded, this switches to Light by itself until you reload. If it's the free daily limit, it stays on Light until the limit resets. You can also switch it by hand. Takes effect immediately.</p>
         <div class="wide actions">
           <button type="submit" class="keep" id="device-save">Save</button>
           <button type="button" class="go" id="diagnose-btn">Check setup</button>

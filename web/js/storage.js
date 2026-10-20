@@ -48,6 +48,11 @@ export const loadPrefs = () => ({
 });
 export const savePrefs = (p) => write(PREFS_KEY, p);
 
+// While the strong model's free daily limit is used up: when it resets (ms).
+const STRONG_PAUSE_KEY = 'dinnercart.strongPausedUntil';
+export const loadStrongPausedUntil = () => Number(read(STRONG_PAUSE_KEY, 0)) || 0;
+export const saveStrongPausedUntil = (ms) => write(STRONG_PAUSE_KEY, ms);
+
 // Today's Gemini-generated "What sounds good?" ideas: {date, ideas}.
 export const loadIdeas = () => read(IDEAS_KEY, null);
 export const saveIdeas = (v) => write(IDEAS_KEY, v);

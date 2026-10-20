@@ -1,7 +1,7 @@
 // DinnerCart UI controller. Plain DOM; views are re-rendered from `state`.
 import { generateCook } from './cook.js';
 import { NoStepsError, createCookView } from './cook-view.js';
-import { LIGHT_MODEL, createGemini, createModelSwitch } from './gemini.js';
+import { LIGHT_MODEL, createGemini, createModelSwitch, waitText } from './gemini.js';
 import { findStores as findStoresNearby, lastDirectProblem, lastSearchRoute, productSearcher, resetDirectSearch } from './kroger.js';
 import { createRelay } from './relay.js';
 import { findRecipes, scaleFor } from './recipes.js';
@@ -36,13 +36,29 @@ const persist = () => storage.saveState({ criteria: state.criteria, results: sta
 const relayUrl = () => settings.relayUrl || DEFAULT_RELAY_URL;
 const configured = () => Boolean(relayUrl() && settings.relayPassword && settings.geminiKey);
 const relay = () => createRelay({ url: relayUrl(), password: settings.relayPassword });
-// Starts on the strong model every page load; drops to the light one when
-// the strong model is rate limited, or when switched in Settings.
-const modelSwitch = createModelSwitch({
-  onChange: (_tier, _model, reason) => {
-    renderModelToggle();
-    if (reason === 'limit') toast('Gemini limit reached. Switched to the Light model until you reload.');
+// Each visit starts on the strong model and drops to the light one when the
+// strong one hits its limit, doesn't answer in time or is overloaded (until
+// reload), or when switched in Config. When it's the free daily limit, every
+// visit starts on Light until the limit resets.
+const strongPaused = () => storage.loadStrongPausedUntil() > Date.now();
+const newModelSwitch = (onChange) => createModelSwitch({
+  initial: strongPaused() ? 'light' : 'strong',
+  onChange: (tier, model, reason, until) => {
+    if (until) storage.saveStrongPausedUntil(until);
+    if (reason === 'manual' && tier === 'strong') storage.saveStrongPausedUntil(0); // trying it again by hand
+    onChange(tier, model, reason, until);
   },
+});
+const modelSwitch = newModelSwitch((_tier, _model, reason, until) => {
+  renderModelToggle();
+  const why = {
+    limit: until
+      ? `The Strong model's free daily limit is used up. Using Light until it resets, in ${waitText(until - Date.now())}.`
+      : 'Gemini limit reached. Switched to the Light model until you reload.',
+    slow: "The Strong model didn't answer in time. Switched to Light until you reload.",
+    busy: 'The Strong model is overloaded. Switched to Light until you reload.',
+  }[reason];
+  if (why) toast(why);
 });
 function renderModelToggle() {
   document.querySelectorAll('[name=modelTier]').forEach((r) => { r.checked = r.value === modelSwitch.tier; });
@@ -608,9 +624,10 @@ async function loadCook(recipe, { fresh = false } = {}) {
       instructions = fresh?.instructions || [];
     }
     if (!instructions.length) throw new NoStepsError();
-    // Always the strong model for Cook (accuracy matters more than speed);
-    // it falls back to the light one only if the strong one is rate limited.
-    cook = await generateCook(createGemini({ apiKey: settings.geminiKey, model: createModelSwitch() }), recipe, instructions);
+    // The strong model for Cook even when the rest is on Light (accuracy
+    // matters more than speed); light only while Strong's daily limit is used
+    // up, or if Strong fails on this one.
+    cook = await generateCook(createGemini({ apiKey: settings.geminiKey, model: newModelSwitch(() => {}) }), recipe, instructions);
     storage.saveCook(recipe.url, cook);
   }
   if (saved) {

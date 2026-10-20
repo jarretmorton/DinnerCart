@@ -376,7 +376,7 @@ the original page's instructions, and always links to the source page.
 - Pages that block bots or have no `schema.org/Recipe` markup are skipped. They're listed under "couldn't be read" with the reason.
 - Free Cloudflare Workers get 10 ms of CPU per request. That's why each recipe page is parsed in its own request.
 - Cook needs the recipe page to publish its steps in `schema.org/Recipe` markup; pages that don't just link to the original. Gemini's rewrite is checked for missing ingredients and temperatures, but it can still get something wrong, so glance at the original for anything critical.
-- The Gemini free tier is rate-limited. Each visit starts on the strong model (`gemini-flash-latest`). When it hits its limit, the app switches to the light model (`gemini-flash-lite-latest`) until you reload. The Strong (anvil) / Light (feather) toggle in Config shows which model is active and can be switched by hand.
+- The Gemini free tier is rate-limited, and tightly: the strong model (`gemini-flash-latest`) can allow as few as 20 requests a day. A search uses about 2, Match 2 to 3, Cook 1 to 2. Each visit starts on the strong model. When it hits its limit, doesn't answer within 30 seconds (60 for Cook) or is overloaded, the app switches to the light model (`gemini-flash-lite-latest`) until you reload; when it's the daily limit, every visit starts on Light until the limit resets (midnight Pacific). The Strong (anvil) / Light (feather) toggle in Config shows which model is active and can be switched by hand. Errors say what happened in plain words (daily limit used up and when it resets, no answer in time, bad key, offline). Adding billing to the Gemini key raises the limits.
 
 ## Credits
 
