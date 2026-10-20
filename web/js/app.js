@@ -646,6 +646,8 @@ async function loadCook(recipe, { fresh = false } = {}) {
 
 function renderSettings() {
   const form = $('#settings-form');
+  // "This device" stays closed once set up; until then it's what Config is for.
+  if (!configured()) $('#device-settings').open = true;
   for (const k of ['relayUrl', 'relayPassword', 'geminiKey']) form.elements[k].value = settings[k] || '';
   if (DEFAULT_RELAY_URL) form.elements.relayUrl.placeholder = DEFAULT_RELAY_URL;
   $('#relay-url-hint').hidden = !DEFAULT_RELAY_URL;

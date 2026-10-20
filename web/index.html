@@ -89,37 +89,40 @@
 
     <!-- ============ CONFIG (#settings) ============ -->
     <section id="view-settings" class="view" hidden>
-      <form id="settings-form" class="card form">
-        <h2 class="wide">This device</h2>
-        <p class="wide hint">Stored only in this browser (an app added to the home screen keeps its own). Have a setup link? <button type="button" class="small link" id="paste-setup-btn">Paste it here</button></p>
-        <label class="wide">Relay URL <input name="relayUrl" type="url" placeholder="https://dinnercart-relay.YOURNAME.workers.dev"></label>
-        <p class="wide hint" id="relay-url-hint" hidden>Already set for this site. Leave it blank unless you use a different relay.</p>
-        <label class="wide">Relay password <input name="relayPassword" type="password" autocomplete="current-password"></label>
-        <label class="wide">Gemini API key <input name="geminiKey" type="password" autocomplete="off" placeholder="from aistudio.google.com"></label>
-        <fieldset class="wide">
-          <legend>Gemini model</legend>
-          <div class="segmented" role="radiogroup">
-            <label><input type="radio" name="modelTier" value="strong"><span data-icon="anvil"></span> Strong</label>
-            <label><input type="radio" name="modelTier" value="light"><span data-icon="feather"></span> Light</label>
+      <!-- Closed unless this device isn't set up yet (app.js opens it then). -->
+      <details id="device-settings" class="card device-settings">
+        <summary><h2>This device</h2><span class="muted small-text">Relay, Gemini key and model, Check setup, setup link</span></summary>
+        <form id="settings-form" class="form">
+          <p class="wide hint">Stored only in this browser (an app added to the home screen keeps its own). Have a setup link? <button type="button" class="small link" id="paste-setup-btn">Paste it here</button></p>
+          <label class="wide">Relay URL <input name="relayUrl" type="url" placeholder="https://dinnercart-relay.YOURNAME.workers.dev"></label>
+          <p class="wide hint" id="relay-url-hint" hidden>Already set for this site. Leave it blank unless you use a different relay.</p>
+          <label class="wide">Relay password <input name="relayPassword" type="password" autocomplete="current-password"></label>
+          <label class="wide">Gemini API key <input name="geminiKey" type="password" autocomplete="off" placeholder="from aistudio.google.com"></label>
+          <fieldset class="wide">
+            <legend>Gemini model</legend>
+            <div class="segmented" role="radiogroup">
+              <label><input type="radio" name="modelTier" value="strong"><span data-icon="anvil"></span> Strong</label>
+              <label><input type="radio" name="modelTier" value="light"><span data-icon="feather"></span> Light</label>
+            </div>
+          </fieldset>
+          <p class="wide hint">Each visit starts on Strong. If Strong hits Gemini's limit, shows no sign of life within 30 seconds, isn't done within a minute or is overloaded (Light gets the whole minute), this switches to Light by itself until you reload. If it's the free daily limit, it stays on Light until the limit resets. You can also switch it by hand. Takes effect immediately.</p>
+          <div class="wide actions">
+            <button type="submit" class="keep" id="device-save">Save</button>
+            <button type="button" class="go" id="diagnose-btn">Check setup</button>
           </div>
-        </fieldset>
-        <p class="wide hint">Each visit starts on Strong. If Strong hits Gemini's limit, shows no sign of life within 30 seconds, isn't done within a minute or is overloaded (Light gets the whole minute), this switches to Light by itself until you reload. If it's the free daily limit, it stays on Light until the limit resets. You can also switch it by hand. Takes effect immediately.</p>
-        <div class="wide actions">
-          <button type="submit" class="keep" id="device-save">Save</button>
-          <button type="button" class="go" id="diagnose-btn">Check setup</button>
-        </div>
-        <ul id="diagnostics" class="wide diagnostics"></ul>
-        <div class="wide actions">
-          <button type="button" class="go" id="gemini-test-btn">Test Gemini speed</button>
-        </div>
-        <p class="wide hint">Times the current model (streamed and not) and a few other Gemini models on this phone, with a one-line test. Uses two of the current model's daily requests and one of each other model's, and can take a minute or two.</p>
-        <ul id="gemini-tests" class="wide diagnostics"></ul>
-        <div class="wide actions">
-          <button type="button" class="go" id="share-setup-btn"><span data-icon="share"></span> Share setup link</button>
-          <label class="inline-check"><input type="checkbox" id="share-gemini"> Include my Gemini key</label>
-        </div>
-        <p class="wide hint">Sets up another phone in your household with one tap. The link contains the relay password, so only send it to people in your household.</p>
-      </form>
+          <ul id="diagnostics" class="wide diagnostics"></ul>
+          <div class="wide actions">
+            <button type="button" class="go" id="gemini-test-btn">Test Gemini speed</button>
+          </div>
+          <p class="wide hint">Times the current model (streamed and not) and a few other Gemini models on this phone, with a one-line test. Uses two of the current model's daily requests and one of each other model's, and can take a minute or two.</p>
+          <ul id="gemini-tests" class="wide diagnostics"></ul>
+          <div class="wide actions">
+            <button type="button" class="go" id="share-setup-btn"><span data-icon="share"></span> Share setup link</button>
+            <label class="inline-check"><input type="checkbox" id="share-gemini"> Include my Gemini key</label>
+          </div>
+          <p class="wide hint">Sets up another phone in your household with one tap. The link contains the relay password, so only send it to people in your household.</p>
+        </form>
+      </details>
 
       <form id="prefs-form" class="card form">
         <h2 class="wide">Household (shared)</h2>

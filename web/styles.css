@@ -88,6 +88,11 @@ main { max-width: 900px; margin: 0 auto; padding: 16px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; box-shadow: var(--shadow); }
 
 .form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+/* Config's "This device": a card that opens on tap (closed once the device is set up). */
+.device-settings summary { cursor: pointer; }
+.device-settings summary h2 { display: inline; }
+.device-settings summary .small-text { display: block; margin: 2px 0 0 1.15em; }
+.device-settings[open] summary { margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px dashed var(--rule); }
 .form .wide { grid-column: 1 / -1; }
 label { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; color: var(--muted); }
 input, select, textarea, button { font: inherit; color: var(--text); }
