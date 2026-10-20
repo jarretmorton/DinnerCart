@@ -181,3 +181,39 @@ test('summarizeTimings: per model, typical and slowest, trouble counted', async 
   assert.equal(l.limit, 1);
   assert.equal(l.doneTypical, 1200);
 });
+
+test('one gate: 30 s to show a sign of life, a minute in all; a long answer that has started may run past the first', async () => {
+  const { START_TIMEOUT_MS, TIMEOUT_MS } = await import('../web/js/gemini.js');
+  assert.equal(START_TIMEOUT_MS, 30_000);
+  assert.equal(TIMEOUT_MS, 60_000);
+  // Starts at once, then keeps writing for longer than the start limit.
+  const slowWriter = async () => {
+    const enc = new TextEncoder();
+    const piece = (t) => enc.encode(`data: ${JSON.stringify(textChunk(t))}\r\n\r\n`);
+    return new Response(new ReadableStream({
+      async start(ctrl) {
+        ctrl.enqueue(piece('{"ok":'));
+        await new Promise((r) => setTimeout(r, 120));
+        ctrl.enqueue(piece('true}'));
+        ctrl.close();
+      },
+    }), { status: 200, headers: { 'content-type': 'text/event-stream' } });
+  };
+  const g = createGemini({ apiKey: 'k', model: 'm', fetchImpl: slowWriter });
+  assert.deepEqual(await g.json('p', {}, { startTimeoutMs: 40, timeoutMs: 1000 }), { ok: true });
+});
+
+test("thinking: 'low' asks for less thinking; a model that refuses it is asked again without", async () => {
+  const bodies = [];
+  const g = createGemini({ apiKey: 'k', model: 'm', fetchImpl: async (_u, init) => {
+    const body = JSON.parse(init.body);
+    bodies.push(body.generationConfig.thinkingConfig);
+    return body.generationConfig.thinkingConfig?.thinkingLevel
+      ? new Response('{"error":{"code":400,"message":"thinking_level is not supported by this model."}}', { status: 400 })
+      : sse([textChunk('{"ok":true}')]);
+  } });
+  assert.deepEqual(await g.json('p', {}, { thinking: 'low' }), { ok: true });
+  assert.deepEqual(bodies, [{ includeThoughts: true, thinkingLevel: 'low' }, undefined]);
+  await g.json('p', {});
+  assert.equal(bodies.at(-1), undefined, 'remembered for the model');
+});

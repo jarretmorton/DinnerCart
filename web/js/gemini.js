@@ -14,13 +14,14 @@ export class GeminiError extends Error {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// A request with no answer by then is given up on (and the strong model
-// drops to the light one), instead of a spinner that never stops.
-export const TIMEOUT_MS = 30_000;
-// ...and one that hasn't started answering by then is treated as stuck.
-// Match and Cook opt out of this one (null) for now.
-// 5 s was too tight: the strong model often thinks longer before it starts.
-export const START_TIMEOUT_MS = 15_000;
+// One gate for every request, on both models: a request that shows no sign
+// of life (no first piece of the answer) within START_TIMEOUT_MS is stuck,
+// and none may take longer than TIMEOUT_MS in all. Running out on the strong
+// model switches to the light one. The models tend to send their answer in
+// one go after thinking, so the first piece can come late (seen: 10-15 s on
+// the free tier); 5 and 15 s cut off requests that would have worked.
+export const START_TIMEOUT_MS = 30_000;
+export const TIMEOUT_MS = 60_000;
 // A limit that lifts later than this is the free tier's daily limit, not
 // the per-minute one: no point waiting for it.
 const LONG_WAIT_MS = 120_000;
@@ -86,8 +87,8 @@ export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = global
   const modelSwitch = typeof model === 'object' && model ? model : null;
   const currentModel = () => (modelSwitch ? modelSwitch.model : model || DEFAULT_MODEL);
   const onStrong = () => modelSwitch?.tier === 'strong';
-  // Models that refused thought summaries (asked for once, then not again).
-  const noThoughts = new Set();
+  // Models that refused the thinking settings (asked once, then not again).
+  const noThinkingConfig = new Set();
 
   // One streamed request. The answer comes in pieces as Gemini writes it
   // (thought summaries first, while it thinks), so a request that's working
@@ -183,19 +184,24 @@ export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = global
   }
 
   // Ask for JSON matching `schema` (OpenAPI-style subset Gemini accepts).
-  // timeoutMs: the whole answer; startTimeoutMs: its first piece (null for
-  // no separate limit). On the strong model, either one running out
-  // switches to the light model and asks again.
-  async function json(prompt, schema, { system, temperature = 0.2, timeoutMs = TIMEOUT_MS, startTimeoutMs = START_TIMEOUT_MS, onStage } = {}) {
+  // startTimeoutMs: its first piece; timeoutMs: the whole answer (see the
+  // constants above). On the strong model, either one running out switches
+  // to the light model and asks again. thinking: 'low' asks the model to
+  // think less, for small jobs that don't need it (faster answers).
+  async function json(prompt, schema, { system, temperature = 0.2, timeoutMs = TIMEOUT_MS, startTimeoutMs = START_TIMEOUT_MS, thinking = null, onStage } = {}) {
     for (let attempt = 0; ; attempt++) {
+      const thinkingConfig = {
+        // Thought summaries stream while it thinks: an early sign it's working.
+        includeThoughts: true,
+        ...(thinking ? { thinkingLevel: thinking } : {}),
+      };
       const body = {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
           temperature,
           responseMimeType: 'application/json',
           responseSchema: schema,
-          // Thought summaries stream while it thinks: the early sign it's working.
-          ...(noThoughts.has(currentModel()) ? {} : { thinkingConfig: { includeThoughts: true } }),
+          ...(noThinkingConfig.has(currentModel()) ? {} : { thinkingConfig }),
         },
       };
       if (system) body.systemInstruction = { parts: [{ text: system }] };
@@ -214,9 +220,9 @@ export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = global
       }
       // An error can also arrive inside the stream.
       const status = data?.error?.code || res.status;
-      if (status === 400 && !noThoughts.has(currentModel()) && /thinking|thought/i.test(data?.error?.message || '')) {
-        // This model doesn't do thought summaries: ask again without them.
-        noThoughts.add(currentModel());
+      if (status === 400 && !noThinkingConfig.has(currentModel()) && /thinking|thought/i.test(data?.error?.message || '')) {
+        // This model doesn't take the thinking settings: ask again without them.
+        noThinkingConfig.add(currentModel());
         attempt--;
         continue;
       }

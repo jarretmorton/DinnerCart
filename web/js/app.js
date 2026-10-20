@@ -753,7 +753,7 @@ async function diagnose() {
     rows.push(line(false, `Relay: ${err.message}`));
   }
   try {
-    const r = await gemini().json('Reply with {"ok": true}.', { type: 'OBJECT', properties: { ok: { type: 'BOOLEAN' } }, required: ['ok'] });
+    const r = await gemini().json('Reply with {"ok": true}.', { type: 'OBJECT', properties: { ok: { type: 'BOOLEAN' } }, required: ['ok'] }, { thinking: 'low' });
     const t = storage.loadGeminiTimings().at(-1);
     rows.push(line(r.ok === true, `Gemini (${modelSwitch.model}) responding${t ? `: first reply ${seconds(t.firstMs)}, done ${seconds(t.totalMs)}` : ''}.`));
   } catch (err) {

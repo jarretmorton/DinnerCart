@@ -109,8 +109,7 @@ export async function normalizeLines({ lines, pantry, gemini, preferences = [], 
   const batches = chunk(lines, 40);
   const results = await mapLimit(batches, concurrency, async (batch) => {
     const prompt = `Household pantry list:\n${pantryText}\n\nHousehold shopping preferences:\n${prefsText}\n\nIngredient lines:\n${batch.map((l) => `${l.id}: ${l.text}`).join('\n')}`;
-    // Match keeps the 30-second limit only (no separate start limit) for now.
-    const out = await gemini.json(prompt, NORMALIZE_SCHEMA, { system: NORMALIZE_SYSTEM, startTimeoutMs: null });
+    const out = await gemini.json(prompt, NORMALIZE_SCHEMA, { system: NORMALIZE_SYSTEM });
     return out.items || [];
   });
   const byId = new Map(lines.map((l) => [l.id, l]));
@@ -212,7 +211,7 @@ export async function pickProducts(items, gemini, { preferences = [], concurrenc
     ].join('\n')).join('\n\n');
     let picks = [];
     try {
-      picks = (await gemini.json(prompt, PICK_SCHEMA, { system: PICK_SYSTEM, startTimeoutMs: null })).picks || [];
+      picks = (await gemini.json(prompt, PICK_SCHEMA, { system: PICK_SYSTEM })).picks || [];
     } catch (err) {
       batch.forEach((item) => { item.pickError = err.message; });
     }

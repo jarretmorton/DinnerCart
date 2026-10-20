@@ -63,8 +63,8 @@ test('generateCook: prompt carries the original steps; output is cleaned and che
   assert.match(seen.prompt, /Original steps:\n1\. Heat oven to 400°F\./);
   assert.match(seen.prompt, /Yield: 4 servings/);
   assert.equal(seen.opts.temperature, 0.1);
-  assert.equal(seen.opts.timeoutMs, 60_000, 'Cook keeps its 60 s');
-  assert.equal(seen.opts.startTimeoutMs, null, 'and no separate start limit');
+  assert.equal(seen.opts.timeoutMs, undefined, 'Cook uses the shared time limits');
+  assert.equal(seen.opts.thinking, undefined, 'and thinks as much as it likes');
   assert.equal(cook.steps.length, 2, 'empty step dropped');
   assert.deepEqual(cook.prep, ['Preheat the oven to 400°F.']);
   assert.deepEqual(cook.steps[1], { text: 'Roast until golden, 25 to 30 minutes.', timerMinutes: 25, timerLabel: 'Roast potatoes' });
