@@ -110,6 +110,11 @@
         </div>
         <ul id="diagnostics" class="wide diagnostics"></ul>
         <div class="wide actions">
+          <button type="button" class="go" id="gemini-test-btn">Test Gemini speed</button>
+        </div>
+        <p class="wide hint">Times the current model (streamed and not) and a few other Gemini models on this phone, with a one-line test. Uses two of the current model's daily requests and one of each other model's, and can take a minute or two.</p>
+        <ul id="gemini-tests" class="wide diagnostics"></ul>
+        <div class="wide actions">
           <button type="button" class="go" id="share-setup-btn"><span data-icon="share"></span> Share setup link</button>
           <label class="inline-check"><input type="checkbox" id="share-gemini"> Include my Gemini key</label>
         </div>

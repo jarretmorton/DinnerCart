@@ -739,9 +739,11 @@ async function savePrefsRemote(patch) {
   storage.savePrefs(prefs);
 }
 
+const line = (ok, text) => `<li>${ok ? '✅' : '⚠️'} ${h(text)}</li>`;
+const OK_TEST = ['Reply with {"ok": true}.', { type: 'OBJECT', properties: { ok: { type: 'BOOLEAN' } }, required: ['ok'] }];
+
 async function diagnose() {
   const out = $('#diagnostics');
-  const line = (ok, text) => `<li>${ok ? '✅' : '⚠️'} ${h(text)}</li>`;
   out.innerHTML = '<li>Checking…</li>';
   const rows = [];
   try {
@@ -752,45 +754,12 @@ async function diagnose() {
   } catch (err) {
     rows.push(line(false, `Relay: ${err.message}`));
   }
-  const geminiCheckAt = Date.now();
   try {
-    const r = await gemini().json('Reply with {"ok": true}.', { type: 'OBJECT', properties: { ok: { type: 'BOOLEAN' } }, required: ['ok'] });
+    const r = await gemini().json(...OK_TEST);
     const t = storage.loadGeminiTimings().at(-1);
     rows.push(line(r.ok === true, `Gemini (${modelSwitch.model}) responding${t ? `: first reply ${seconds(t.firstMs)}, done ${seconds(t.totalMs)}` : ''}.`));
   } catch (err) {
     rows.push(line(false, `Gemini: ${err.message}`));
-  }
-  // Speed comparison: the same one-line test as a regular (not streamed)
-  // request, to see whether streaming is what's slow.
-  try {
-    const model = modelSwitch.model;
-    await gemini().json('Reply with {"ok": true}.', { type: 'OBJECT', properties: { ok: { type: 'BOOLEAN' } }, required: ['ok'] }, { stream: false });
-    // This check's requests on this model: the streamed test, then the regular one.
-    const mine = storage.loadGeminiTimings().filter((x) => x.at >= geminiCheckAt && x.model === model);
-    const regular = mine.at(-1);
-    const streamed = mine.length > 1 ? mine.at(-2) : null;
-    rows.push(line(true, `Speed test (${model}): regular request done in ${seconds(regular.totalMs)}, streamed ${streamed ? seconds(streamed.totalMs) : 'not measured'}.`));
-  } catch (err) {
-    rows.push(line(false, `Speed test, regular request: ${err.message}`));
-  }
-  // Other models, side by side: maybe one answers much faster than the
-  // light one. Each try uses one request of that model's own daily allowance.
-  try {
-    const names = pickTestModels(await listModels({ apiKey: settings.geminiKey }));
-    const results = await Promise.all(names.map(async (name) => {
-      const started = Date.now();
-      try {
-        await createGemini({ apiKey: settings.geminiKey, model: name }).json('Reply with {"ok": true}.', { type: 'OBJECT', properties: { ok: { type: 'BOOLEAN' } }, required: ['ok'] });
-        return `${name} ${seconds(Date.now() - started)}`;
-      } catch (err) {
-        return `${name} failed (${err.status === 429 ? 'limit reached' : err.status === 'timeout' ? 'no answer in time' : `error ${err.status}`})`;
-      }
-    }));
-    rows.push(names.length
-      ? line(true, `Other models, same one-line test: ${results.join(' · ')}.`)
-      : line(false, 'Other models: none found to try.'));
-  } catch (err) {
-    rows.push(line(false, `Other models: couldn't list them (${err.message}).`));
   }
   // How fast Gemini has really been on this device, per model.
   for (const t of summarizeTimings(storage.loadGeminiTimings())) {
@@ -818,6 +787,43 @@ async function diagnose() {
   rows.push(line(Boolean(prefs.store), prefs.store ? `Store: ${prefs.store.name}` : 'No store chosen yet.'));
   out.innerHTML = rows.join('');
   $('#diagnose-btn').classList.add('on');
+}
+
+// "Test Gemini speed" (separate from Check setup, since it's slow): the
+// current model streamed and as a regular request, and the same one-line
+// test on a few other models side by side, to see whether streaming or the
+// model is what's slow. Uses one request of each model's daily allowance.
+async function testGeminiSpeed() {
+  const out = $('#gemini-tests');
+  out.innerHTML = '<li>Testing… this can take a minute or two.</li>';
+  const timed = async (fn) => {
+    const started = Date.now();
+    try {
+      await fn();
+      return seconds(Date.now() - started);
+    } catch (err) {
+      return `failed (${err.status === 429 ? 'limit reached' : err.status === 'timeout' ? 'no answer in time' : err.message})`;
+    }
+  };
+  const model = modelSwitch.model;
+  // The current model one way then the other; the other models meanwhile.
+  const current = (async () => {
+    const streamed = await timed(() => gemini().json(...OK_TEST));
+    const regular = await timed(() => gemini().json(...OK_TEST, { stream: false }));
+    return line(true, `${model}: streamed ${streamed}, regular request ${regular}.`);
+  })();
+  const others = (async () => {
+    try {
+      const names = pickTestModels(await listModels({ apiKey: settings.geminiKey })).filter((n) => n !== model);
+      if (!names.length) return line(false, 'Other models: none found to try.');
+      const results = await Promise.all(names.map(async (name) => `${name} ${await timed(() => createGemini({ apiKey: settings.geminiKey, model: name }).json(...OK_TEST))}`));
+      return line(true, `Other models: ${results.join(' · ')}.`);
+    } catch (err) {
+      return line(false, `Other models: couldn't list them (${err.message}).`);
+    }
+  })();
+  out.innerHTML = (await Promise.all([current, others])).join('');
+  $('#gemini-test-btn').classList.add('on');
 }
 
 async function findStores() {
@@ -943,6 +949,7 @@ $('#zip-btn').addEventListener('click', async () => {
   if ($('#store-list').textContent === 'Searching…') $('#store-list').innerHTML = '';
 });
 $('#diagnose-btn').addEventListener('click', diagnose);
+$('#gemini-test-btn').addEventListener('click', testGeminiSpeed);
 $('#kroger-connect').addEventListener('click', async () => {
   if (!await guarded(null, () => connectKroger())) $('#kroger-connect').classList.remove('on');
 });
