@@ -194,12 +194,14 @@ icons only. The app opens on Search (Config until it's set up); a reload
 stays on the tab you were on.
 
 **Buttons:** green moves you forward (Search, Pick, Cook, Match, Add to
-Fred Meyer cart); red keeps or removes (Save, Remove, Disconnect, the Config
-Saves). Both start outlined and go solid once they're done or in effect: the
+Fred Meyer cart); lemon keeps (Save on a recipe, the Config Saves); red
+discards (Remove, Disconnect). All start outlined and go solid once they're done or in effect: the
 search method behind the results, a picked or saved recipe, Cook when its
 steps are already written, Match while the list fits the picks, Add to Fred
 Meyer cart until the list changes. Plain red text clears (Clear results,
-Clear picks, Clear list, remove). Links are green. Buttons go solid as soon
+Clear picks, Clear list, remove). Links are green. Lemon also marks things
+worth noticing: the "your usual" and "sale" tags on the shopping list, and
+rating stars. Buttons go solid as soon
 as you tap them (the other search buttons go back to outlines), and turn back
 to an outline if you cancel or it fails.
 

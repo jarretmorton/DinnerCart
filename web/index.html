@@ -107,7 +107,7 @@
           </fieldset>
           <p class="wide hint">Each visit starts on Strong. If Strong hits Gemini's limit, shows no sign of life within 30 seconds, isn't done within a minute or is overloaded (Light gets the whole minute), this switches to Light by itself until you reload. If it's the free daily limit, it stays on Light until the limit resets. You can also switch it by hand. Takes effect immediately.</p>
           <div class="wide actions">
-            <button type="submit" class="keep" id="device-save">Save</button>
+            <button type="submit" class="save" id="device-save">Save</button>
             <button type="button" class="go" id="diagnose-btn">Check setup</button>
           </div>
           <ul id="diagnostics" class="wide diagnostics"></ul>
@@ -132,7 +132,7 @@
         <p class="wide hint">One login for the household. The cart is shared; check it in the Fred Meyer app before checkout.</p>
         <p class="wide" id="kroger-status">Status unknown.</p>
         <div class="wide actions">
-          <button type="button" id="kroger-disconnect" class="keep" hidden>Disconnect</button>
+          <button type="button" id="kroger-disconnect" class="drop" hidden>Disconnect</button>
           <button type="button" id="kroger-connect" class="go">Connect Fred Meyer</button>
         </div>
 
@@ -181,7 +181,7 @@
         <label class="wide">Pantry staples (never added; one per line)
           <textarea name="pantry" rows="10"></textarea>
         </label>
-        <div class="wide actions"><button type="submit" class="keep" id="prefs-save">Save household settings</button></div>
+        <div class="wide actions"><button type="submit" class="save" id="prefs-save">Save household settings</button></div>
       </form>
     </section>
   </main>

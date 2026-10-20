@@ -110,12 +110,12 @@ async function guarded(statusEl, fn) {
 
 // ---------------------------------------------------------------- button states
 
-// Green (go) and red (keep) buttons go solid the moment they're tapped.
+// Green (go), lemon (save) and red (drop) buttons go solid the moment they're tapped.
 // syncButtons() then settles the ones backed by state to what's true (picked,
 // saved, steps written, list matched or sent), so a cancel or a failure turns
 // them back to an outline. Config buttons settle where they're handled.
 document.addEventListener('click', (e) => {
-  const b = e.target.closest('button.go, button.keep');
+  const b = e.target.closest('button.go, button.save, button.drop');
   if (b && !b.disabled) b.classList.add('on');
 }, true);
 
@@ -237,8 +237,8 @@ function recipeCard(recipe, { reason, libraryId } = {}) {
         <div class="buttons">
           <button class="go ${picked ? 'on' : ''}" data-action="toggle-pick" data-url="${h(recipe.url)}">${picked ? `${icon('check')} Picked` : `${icon('cart')} Pick`}</button>
           ${libraryId
-            ? `<button class="keep" data-action="lib-delete" data-id="${h(libraryId)}">${icon('trash')} Remove</button>`
-            : `<button class="keep ${saved ? 'on' : ''}" data-action="save" data-url="${h(recipe.url)}" ${saved ? 'disabled' : ''}>${saved ? `${icon('book', { filled: true })} Saved` : `${icon('book')} Save`}</button>`}
+            ? `<button class="drop" data-action="lib-delete" data-id="${h(libraryId)}">${icon('trash')} Remove</button>`
+            : `<button class="save ${saved ? 'on' : ''}" data-action="save" data-url="${h(recipe.url)}" ${saved ? 'disabled' : ''}>${saved ? `${icon('book', { filled: true })} Saved` : `${icon('book')} Save`}</button>`}
           <button class="go ${hasCook(recipe.url) ? 'on' : ''}" data-action="cook" data-url="${h(recipe.url)}">${icon('pan')} Cook</button>
         </div>
       </div>
@@ -450,7 +450,16 @@ function itemRow(item) {
         ${item.candidates.length
           ? `<select data-action="swap" data-key="${h(item.key)}" aria-label="Product">${options}<option value="-1" ${item.choice === -1 ? 'selected' : ''}>— none of these —</option></select>`
           : `<div class="product-meta">${item.searchError ? `Fred Meyer search failed: ${h(item.searchError)}` : 'No products found. Try another search below.'}</div>`}
-        ${p ? `<div class="product-meta">${[p.brand, p.size, p.price && money(p.promoPrice || p.price) + (p.promoPrice ? ' sale' : ''), p.aisle, p.inStock === false && '⚠ out of stock', item.reason, p.usual && !/usual/i.test(item.reason || '') && 'your usual'].filter(Boolean).map(h).join(' · ')}</div>` : ''}
+        ${p ? `<div class="product-meta">${[
+          p.brand && h(p.brand),
+          p.size && h(p.size),
+          // Lemon tags for what's worth noticing: a sale, the household's usual.
+          p.price && `${h(money(p.promoPrice || p.price))}${p.promoPrice ? ' <span class="tag">sale</span>' : ''}`,
+          p.aisle && h(p.aisle),
+          p.inStock === false && h('⚠ out of stock'),
+          item.reason && !/^your usual$/i.test(item.reason) && h(item.reason),
+          p.usual && '<span class="tag">your usual</span>',
+        ].filter(Boolean).join(' · ')}</div>` : ''}
         <details ${p ? '' : 'open'}><summary>Recipe lines · search again</summary>
           <ul>${lines}</ul>
           <span class="row"><input value="${h(item.searchTerm)}" data-search-for="${h(item.key)}" aria-label="Search term"><button class="small" data-action="research" data-key="${h(item.key)}">Search</button></span>
@@ -727,7 +736,7 @@ let usuals = null;
 
 function rememberUsual(item, product) {
   item.candidates.forEach((c) => { c.usual = c === product; });
-  item.reason = 'your choice · now your usual';
+  item.reason = 'your choice'; // the "your usual" tag says the rest
   relay().usualSet(itemKey(item.name), product)
     .then((r) => { usuals = r.usuals; renderUsuals(); })
     .catch((err) => toast(`Couldn't remember it as your usual: ${err.message}`, 'error'));

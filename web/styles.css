@@ -1,5 +1,5 @@
 /* Design language: "Tomato & Basil". Crisp near-white, tomato red + basil
-   green, charcoal text, Fraunces headings over Inter text, pill buttons,
+   green (+ the icon's lemon as an accent), charcoal text, Fraunces headings over Inter text, pill buttons,
    dashed "market twine" rules. Night uses the same shapes and type on green-black. */
 :root {
   --bg: #F4F6F4;
@@ -15,6 +15,11 @@
   --basil: #23744A;
   --basil-text: #FFFFFF;
   --basil-soft: #DCEFE3;
+  --lemon: #F2C94C;           /* the icon's lemon: keeping, and things worth noticing */
+  --lemon-edge: #D9A21B;      /* outline border: plain lemon is too faint on white */
+  --lemon-ink: #1D2420;       /* text on lemon (white on lemon is unreadable) */
+  --lemon-soft: #FBF0C9;
+  --star: #E2A912;
   --warn: #8A5A00;
   --warn-soft: #FCEFD2;
   --bad: #B3261E;
@@ -39,6 +44,11 @@
     --basil: #7DCB98;
     --basil-text: #0D1A12;
     --basil-soft: #1D3227;
+    --lemon: #F2C94C;
+    --lemon-edge: #F2C94C;
+    --lemon-ink: #1A1608;
+    --lemon-soft: #3A321A;
+    --star: #F2C94C;
     --warn: #F2C063;
     --warn-soft: #3A3020;
     --bad: #F2928A;
@@ -146,9 +156,13 @@ button.link { border: 0; background: none; color: var(--basil); padding: 4px; }
 /* Go (green): moves you forward. Outline until used, solid once it's done or in effect. */
 button.go { border-color: var(--basil); box-shadow: inset 0 0 0 1px var(--basil); color: var(--basil); background: var(--card); font-weight: 600; }
 button.go.on { background: var(--basil); color: var(--basil-text); }
-/* Keep (red): saving, removing, account changes. Outline, solid once done. */
-button.keep { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: var(--accent); background: var(--card); font-weight: 600; }
-button.keep.on { background: var(--accent); color: var(--accent-text); }
+/* Save (lemon): keeping things. Lemon text would be too faint, so the
+   outline is a gold border with charcoal text; solid is a lemon fill. */
+button.save { border-color: var(--lemon-edge); box-shadow: inset 0 0 0 1px var(--lemon-edge); color: var(--text); background: var(--card); font-weight: 600; }
+button.save.on { background: var(--lemon); border-color: var(--lemon); box-shadow: none; color: var(--lemon-ink); }
+/* Drop (red): removing, disconnecting. Outline, solid while it confirms or once done. */
+button.drop { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: var(--accent); background: var(--card); font-weight: 600; }
+button.drop.on { background: var(--accent); color: var(--accent-text); }
 button.on:disabled { opacity: 1; } /* "Saved" is done, not unavailable */
 /* Clear (red text, no pill): clearing and removing lines. */
 button.clear { border: 0; box-shadow: none; background: none; color: var(--accent); padding-left: 4px; padding-right: 4px; }
@@ -173,13 +187,17 @@ button[hidden] { display: none; }
 .meta span { display: inline-flex; align-items: center; gap: 4px; }
 .why { font-size: 0.92rem; font-style: italic; color: var(--text); opacity: 0.85; }
 .recipe details { font-size: 0.85rem; color: var(--muted); }
-/* Family rating on saved recipes: three faces, the chosen one tinted
-   (green loved it, red not again). */
+/* Family rating on saved recipes: three faces, the chosen one solid in its
+   color (green loved it, lemon OK, red not again). */
 .family-rating { display: flex; align-items: center; gap: 6px; }
 .family-rating .face { width: 36px; height: 36px; padding: 0; border-radius: 50%; color: var(--muted); font-size: 1.15rem; }
-.family-rating .face.happy.on { background: var(--basil-soft); border-color: var(--basil); color: var(--basil); }
-.family-rating .face.meh.on { background: var(--line); border-color: var(--muted); color: var(--text); }
-.family-rating .face.sad.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.family-rating .face.happy.on { background: var(--basil); border-color: var(--basil); color: var(--basil-text); }
+.family-rating .face.meh.on { background: var(--lemon); border-color: var(--lemon); color: var(--lemon-ink); }
+.family-rating .face.sad.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.recipe .meta .icon-star { color: var(--star); }
+/* Lemon tag: something worth noticing (your usual, sale). */
+.tag { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--lemon-soft); color: var(--text); font-weight: 600; font-size: 0.78rem; }
+@media (prefers-color-scheme: dark) { .tag { color: var(--lemon); } }
 .recipe details ul { padding-left: 18px; margin: 6px 0; }
 .recipe .buttons { display: flex; gap: 8px; margin-top: auto; padding-top: 6px; }
 .recipe .buttons button { flex: 1; min-width: 0; padding-left: 10px; padding-right: 10px; }
