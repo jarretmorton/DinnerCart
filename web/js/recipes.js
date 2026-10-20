@@ -43,8 +43,7 @@ export async function generateQueries(gemini, criteria, { liked, novel = false, 
   } else {
     prompt = `A couple wants dinner ideas. They haven't saved any recipes yet, so suggest popular, well-loved weeknight dinners with variety.${extra ? `\nThey said:\n${extra}` : ''}\n\nWrite 3 different web search queries. ${rules}`;
   }
-  // Small job: less thinking, faster answer.
-  const out = await gemini.json(prompt, S.obj({ queries: S.arr(S.str()) }), { temperature: liked ? 0.9 : 0.7, thinking: 'low', onStage });
+  const out = await gemini.json(prompt, S.obj({ queries: S.arr(S.str()) }), { temperature: liked ? 0.9 : 0.7, onStage });
   return (out.queries || []).map((q) => String(q).trim()).filter(Boolean).slice(0, 3);
 }
 
@@ -126,7 +125,7 @@ export async function rankRecipes(gemini, recipes, criteria, { liked, novel = fa
       ? `A couple is choosing what to cook. Recipes they've saved (their taste):\n${describeTaste(liked)}\n${describeCriteria(criteria) ? `\nThey also said:\n${describeCriteria(criteria)}\n` : ''}\nCandidate recipes:\n${list}\n\nScore each recipe 0-100 for how likely they are to enjoy it given their taste (and anything they said), favoring variety over near-copies of what they've saved, then ratings with many reviews. Recipes that clearly contain an excluded ingredient score below 10. Give a one-sentence reason that connects it to their taste.`
       : `A couple is choosing what to cook. Their request:\n${describeCriteria(criteria) || 'Anything good for dinner'}\n\nCandidate recipes:\n${list}\n\nScore each recipe 0-100 for how well it fits the request (fit matters most, then ratings with many reviews, then a reasonable ingredient list). Recipes that clearly contain an excluded ingredient score below 10. Give a one-sentence reason a person would find useful (what makes it a good or poor fit).`,
     S.obj({ ranking: S.arr(S.obj({ index: S.int(), score: S.int(), reason: S.str() })) }),
-    { thinking: 'low', onStage },
+    { onStage },
   );
   const scored = recipes.map((r) => ({ recipe: r, score: 0, reason: '' }));
   for (const x of out.ranking || []) {

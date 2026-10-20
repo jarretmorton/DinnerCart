@@ -116,7 +116,7 @@ test('streams: thoughts then text, stages reported, answer joined, timing record
   const out = await g.json('p', {}, { onStage: (s) => stages.push(s) });
   assert.deepEqual(out, { queries: ['sweet potato chili', 'black bean chili'] }, 'thought text left out');
   assert.match(seen[0].url, /\/models\/m:streamGenerateContent\?alt=sse$/);
-  assert.deepEqual(seen[0].body.generationConfig.thinkingConfig, { includeThoughts: true });
+  assert.equal(seen[0].body.generationConfig.thinkingConfig, undefined, 'no thinking settings: they slowed the light model down');
   assert.deepEqual(stages, ['thinking', 'writing']);
   assert.equal(timings.length, 1);
   assert.equal(timings[0].model, 'm');
@@ -145,19 +145,7 @@ test('no first piece within the start limit: strong drops to light; Match-style 
   await assert.rejects(neverDone.json('p', {}, { startTimeoutMs: null, timeoutMs: 60 }), /didn't finish within 0 seconds/);
 });
 
-test('a model without thought summaries is asked again without them; errors inside the stream count', async () => {
-  const bodies = [];
-  const fetchImpl = async (_url, init) => {
-    const body = JSON.parse(init.body);
-    bodies.push(body);
-    if (body.generationConfig.thinkingConfig) return new Response('{"error":{"code":400,"message":"Thinking is not supported for this model."}}', { status: 400 });
-    return sse([textChunk('{"ok":true}')]);
-  };
-  const g = createGemini({ apiKey: 'k', model: 'm', fetchImpl });
-  assert.deepEqual(await g.json('p', {}), { ok: true });
-  assert.deepEqual(await g.json('p', {}), { ok: true });
-  assert.deepEqual(bodies.map((b) => Boolean(b.generationConfig.thinkingConfig)), [true, false, false], 'remembered for the model');
-
+test('an error inside the stream counts like any other (a daily limit here)', async () => {
   const { sw, changes } = switchLog();
   const inStream = createGemini({ apiKey: 'k', model: sw, fetchImpl: async (url) => (modelOf(url) === 'strong-m'
     ? sse([{ error: { code: 429, message: 'Quota exceeded for metric: free_tier_requests', details: [{ '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay: '3600s' }] } }])
@@ -201,19 +189,4 @@ test('one gate: 30 s to show a sign of life, a minute in all; a long answer that
   };
   const g = createGemini({ apiKey: 'k', model: 'm', fetchImpl: slowWriter });
   assert.deepEqual(await g.json('p', {}, { startTimeoutMs: 40, timeoutMs: 1000 }), { ok: true });
-});
-
-test("thinking: 'low' asks for less thinking; a model that refuses it is asked again without", async () => {
-  const bodies = [];
-  const g = createGemini({ apiKey: 'k', model: 'm', fetchImpl: async (_u, init) => {
-    const body = JSON.parse(init.body);
-    bodies.push(body.generationConfig.thinkingConfig);
-    return body.generationConfig.thinkingConfig?.thinkingLevel
-      ? new Response('{"error":{"code":400,"message":"thinking_level is not supported by this model."}}', { status: 400 })
-      : sse([textChunk('{"ok":true}')]);
-  } });
-  assert.deepEqual(await g.json('p', {}, { thinking: 'low' }), { ok: true });
-  assert.deepEqual(bodies, [{ includeThoughts: true, thinkingLevel: 'low' }, undefined]);
-  await g.json('p', {});
-  assert.equal(bodies.at(-1), undefined, 'remembered for the model');
 });

@@ -20,6 +20,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // model switches to the light one. The models tend to send their answer in
 // one go after thinking, so the first piece can come late (seen: 10-15 s on
 // the free tier); 5 and 15 s cut off requests that would have worked.
+// No thinking settings are sent: asking for thought summaries
+// (includeThoughts) or a thinking level made the light model think, and its
+// replies went from about 1 s to 10-30 s, with no thoughts streamed back.
 export const START_TIMEOUT_MS = 30_000;
 export const TIMEOUT_MS = 60_000;
 // A limit that lifts later than this is the free tier's daily limit, not
@@ -87,11 +90,9 @@ export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = global
   const modelSwitch = typeof model === 'object' && model ? model : null;
   const currentModel = () => (modelSwitch ? modelSwitch.model : model || DEFAULT_MODEL);
   const onStrong = () => modelSwitch?.tier === 'strong';
-  // Models that refused the thinking settings (asked once, then not again).
-  const noThinkingConfig = new Set();
 
   // One streamed request. The answer comes in pieces as Gemini writes it
-  // (thought summaries first, while it thinks), so a request that's working
+  // (long answers in several, short ones often in one), so a request that's working
   // can be told from one that's stuck: no first piece within startTimeoutMs
   // (when set), or no finished answer within timeoutMs, aborts it with a
   // GeminiError (status 'timeout'). onStage('thinking' | 'writing') reports
@@ -186,25 +187,14 @@ export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = global
   // Ask for JSON matching `schema` (OpenAPI-style subset Gemini accepts).
   // startTimeoutMs: its first piece; timeoutMs: the whole answer (see the
   // constants above). On the strong model, either one running out switches
-  // to the light model and asks again. thinking: 'low' asks the model to
-  // think less, for small jobs that don't need it (faster answers).
-  async function json(prompt, schema, { system, temperature = 0.2, timeoutMs = TIMEOUT_MS, startTimeoutMs = START_TIMEOUT_MS, thinking = null, onStage } = {}) {
+  // to the light model and asks again.
+  async function json(prompt, schema, { system, temperature = 0.2, timeoutMs = TIMEOUT_MS, startTimeoutMs = START_TIMEOUT_MS, onStage } = {}) {
+    const body = {
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { temperature, responseMimeType: 'application/json', responseSchema: schema },
+    };
+    if (system) body.systemInstruction = { parts: [{ text: system }] };
     for (let attempt = 0; ; attempt++) {
-      const thinkingConfig = {
-        // Thought summaries stream while it thinks: an early sign it's working.
-        includeThoughts: true,
-        ...(thinking ? { thinkingLevel: thinking } : {}),
-      };
-      const body = {
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature,
-          responseMimeType: 'application/json',
-          responseSchema: schema,
-          ...(noThinkingConfig.has(currentModel()) ? {} : { thinkingConfig }),
-        },
-      };
-      if (system) body.systemInstruction = { parts: [{ text: system }] };
       let res;
       let data;
       try {
@@ -220,12 +210,6 @@ export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = global
       }
       // An error can also arrive inside the stream.
       const status = data?.error?.code || res.status;
-      if (status === 400 && !noThinkingConfig.has(currentModel()) && /thinking|thought/i.test(data?.error?.message || '')) {
-        // This model doesn't take the thinking settings: ask again without them.
-        noThinkingConfig.add(currentModel());
-        attempt--;
-        continue;
-      }
       if (status === 429) {
         const waitMs = retryDelayMs(data, res.headers);
         const daily = isDailyLimit(data, waitMs);

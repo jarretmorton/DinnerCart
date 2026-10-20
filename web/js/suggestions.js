@@ -48,7 +48,7 @@ export async function generateIdeas(gemini, { liked = [], now = new Date() } = {
   const out = await gemini.json(
     `Suggest 25 dinner ideas for a couple to type into a recipe search box. It's ${MONTHS[now.getMonth()]}.\n${taste}\n\nEach idea: 2-6 words, lowercase except proper nouns, creative but easy for a weeknight (one-pan, sheet-pan, 30-minute, pantry-friendly and so on). Mix cuisines, proteins and vegetarian options, and lean into what's in season. A few can be moods rather than dishes ("something cozy for a rainy night"). No brand names, no numbering.`,
     S.obj({ ideas: S.arr(S.str()) }),
-    { temperature: 1, thinking: 'low' },
+    { temperature: 1 },
   );
   const seen = new Set();
   const ideas = (out.ideas || [])
