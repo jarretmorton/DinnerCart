@@ -190,3 +190,10 @@ test('one gate: 30 s to show a sign of life, a minute in all; a long answer that
   const g = createGemini({ apiKey: 'k', model: 'm', fetchImpl: slowWriter });
   assert.deepEqual(await g.json('p', {}, { startTimeoutMs: 40, timeoutMs: 1000 }), { ok: true });
 });
+
+test('stream: false uses the regular request', async () => {
+  const urls = [];
+  const g = createGemini({ apiKey: 'k', model: 'm', fetchImpl: async (url) => { urls.push(url); return ok(); } });
+  assert.deepEqual(await g.json('p', {}, { stream: false }), { ok: true });
+  assert.match(urls[0], /\/models\/m:generateContent$/);
+});

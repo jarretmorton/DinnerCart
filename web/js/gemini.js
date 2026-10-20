@@ -97,7 +97,7 @@ export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = global
   // (when set), or no finished answer within timeoutMs, aborts it with a
   // GeminiError (status 'timeout'). onStage('thinking' | 'writing') reports
   // what the pieces show.
-  async function send(body, { timeoutMs, startTimeoutMs, onStage }) {
+  async function send(body, { timeoutMs, startTimeoutMs, onStage, stream = true }) {
     const modelId = currentModel();
     const ctrl = new AbortController();
     const started = Date.now();
@@ -126,7 +126,8 @@ export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = global
     const go = async () => {
       let res;
       try {
-        res = await fetchImpl(`${API}/${encodeURIComponent(modelId)}:streamGenerateContent?alt=sse`, {
+        const method = stream ? 'streamGenerateContent?alt=sse' : 'generateContent';
+        res = await fetchImpl(`${API}/${encodeURIComponent(modelId)}:${method}`, {
           method: 'POST',
           headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
           body: JSON.stringify(body),
@@ -188,7 +189,9 @@ export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = global
   // startTimeoutMs: its first piece; timeoutMs: the whole answer (see the
   // constants above). On the strong model, either one running out switches
   // to the light model and asks again.
-  async function json(prompt, schema, { system, temperature = 0.2, timeoutMs = TIMEOUT_MS, startTimeoutMs = START_TIMEOUT_MS, onStage } = {}) {
+  // stream: false asks with the regular (one-piece) request instead, for
+  // Check setup's speed comparison.
+  async function json(prompt, schema, { system, temperature = 0.2, timeoutMs = TIMEOUT_MS, startTimeoutMs = START_TIMEOUT_MS, onStage, stream = true } = {}) {
     const body = {
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: { temperature, responseMimeType: 'application/json', responseSchema: schema },
@@ -198,7 +201,7 @@ export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = global
       let res;
       let data;
       try {
-        ({ res, data } = await send(body, { timeoutMs, startTimeoutMs, onStage }));
+        ({ res, data } = await send(body, { timeoutMs, startTimeoutMs, onStage, stream }));
       } catch (err) {
         // Strong model stuck or slow: try the light one now.
         if (err.status === 'timeout' && onStrong()) {

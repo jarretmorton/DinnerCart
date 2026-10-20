@@ -752,12 +752,26 @@ async function diagnose() {
   } catch (err) {
     rows.push(line(false, `Relay: ${err.message}`));
   }
+  const geminiCheckAt = Date.now();
   try {
     const r = await gemini().json('Reply with {"ok": true}.', { type: 'OBJECT', properties: { ok: { type: 'BOOLEAN' } }, required: ['ok'] });
     const t = storage.loadGeminiTimings().at(-1);
     rows.push(line(r.ok === true, `Gemini (${modelSwitch.model}) responding${t ? `: first reply ${seconds(t.firstMs)}, done ${seconds(t.totalMs)}` : ''}.`));
   } catch (err) {
     rows.push(line(false, `Gemini: ${err.message}`));
+  }
+  // Speed comparison: the same one-line test as a regular (not streamed)
+  // request, to see whether streaming is what's slow.
+  try {
+    const model = modelSwitch.model;
+    await gemini().json('Reply with {"ok": true}.', { type: 'OBJECT', properties: { ok: { type: 'BOOLEAN' } }, required: ['ok'] }, { stream: false });
+    // This check's requests on this model: the streamed test, then the regular one.
+    const mine = storage.loadGeminiTimings().filter((x) => x.at >= geminiCheckAt && x.model === model);
+    const regular = mine.at(-1);
+    const streamed = mine.length > 1 ? mine.at(-2) : null;
+    rows.push(line(true, `Speed test (${model}): regular request done in ${seconds(regular.totalMs)}, streamed ${streamed ? seconds(streamed.totalMs) : 'not measured'}.`));
+  } catch (err) {
+    rows.push(line(false, `Speed test, regular request: ${err.message}`));
   }
   // How fast Gemini has really been on this device, per model.
   for (const t of summarizeTimings(storage.loadGeminiTimings())) {
