@@ -23,8 +23,7 @@ const VIEWS = ['find', 'cart', 'recipes', 'settings'];
 const FM_CART_URL = 'https://www.fredmeyer.com/cart';
 const FM_ORDERS_URL = 'https://www.fredmeyer.com/mypurchases';
 const extLink = (url, text) => `<a class="ext" href="${url}" target="_blank" rel="noopener">${text}${icon('external')}</a>`;
-const fmCartLink = (text = 'Fred Meyer cart') => extLink(FM_CART_URL, text);
-const fmLinks = () => `<div class="fm-links">${fmCartLink()}${extLink(FM_ORDERS_URL, 'Fred Meyer orders')}</div>`;
+const fmLinks = () => `<div class="fm-links">${extLink(FM_CART_URL, 'Fred Meyer cart')}${extLink(FM_ORDERS_URL, 'Fred Meyer orders')}</div>`;
 
 let settings = storage.loadSettings();
 let prefs = storage.loadPrefs();
@@ -486,8 +485,9 @@ async function sendCart() {
       cart.sentAt = Date.now();
       cart.sentSignature = linesSignature(cart);
       persist();
-      setStatus(status, `Added ${r.added} products. Review and check out in Fred Meyer: `, 'ok');
-      status.insertAdjacentHTML('beforeend', fmCartLink('Open Fred Meyer cart'));
+      // The send bar shows "Sent …" and the Fred Meyer links, so just a toast.
+      setStatus(status, '');
+      toast(`Added ${r.added} products to your Fred Meyer cart`);
       renderCart();
       // Picked recipes are saved to the shared Save tab automatically.
       relay().libraryPicked(state.selected.slice(0, 20).map((s) => withCook(s.recipe)))
