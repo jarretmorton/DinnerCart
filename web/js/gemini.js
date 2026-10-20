@@ -17,6 +17,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // A request with no answer by then is given up on (and the strong model
 // drops to the light one), instead of a spinner that never stops.
 export const TIMEOUT_MS = 30_000;
+// ...and one that hasn't started answering by then is treated as stuck.
+// Match and Cook opt out of this one (null) for now.
+export const START_TIMEOUT_MS = 5_000;
 // A limit that lifts later than this is the free tier's daily limit, not
 // the per-minute one: no point waiting for it.
 const LONG_WAIT_MS = 120_000;
@@ -59,29 +62,68 @@ export function createModelSwitch({ strong = DEFAULT_MODEL, light = LIGHT_MODEL,
   return sw;
 }
 
+// Joins streamed chunks into one generateContent-shaped answer. Thought
+// summaries (parts marked `thought`) only show it's working; they aren't
+// part of the answer.
+function mergeChunks(chunks) {
+  const error = chunks.find((c) => c?.error)?.error;
+  if (error) return { error };
+  const text = chunks.flatMap((c) => c?.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('');
+  const finishReason = chunks.map((c) => c?.candidates?.[0]?.finishReason).filter(Boolean).at(-1);
+  const promptFeedback = chunks.find((c) => c?.promptFeedback)?.promptFeedback;
+  return { candidates: [{ content: { parts: [{ text }] }, finishReason }], promptFeedback };
+}
+
+const secs = (ms) => Math.round(ms / 1000);
+
 // `model` is a model id, or a switch from createModelSwitch() to fall back
-// to the light model when the strong one is rate limited.
-export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = globalThis.fetch.bind(globalThis), maxRetries = 4 } = {}) {
+// to the light model when the strong one is rate limited, slow or busy.
+// onTiming({model, firstMs, totalMs, outcome, at}) is called after every
+// request, for "Check setup" to show how fast Gemini really is.
+export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = globalThis.fetch.bind(globalThis), maxRetries = 4, onTiming = () => {} } = {}) {
   if (!apiKey) throw new GeminiError('Add your Gemini API key in Config.', 0);
   const modelSwitch = typeof model === 'object' && model ? model : null;
   const currentModel = () => (modelSwitch ? modelSwitch.model : model || DEFAULT_MODEL);
-
   const onStrong = () => modelSwitch?.tier === 'strong';
+  // Models that refused thought summaries (asked for once, then not again).
+  const noThoughts = new Set();
 
-  // One request, answer read in full, or a GeminiError (timeout, offline).
-  async function send(body, timeoutMs) {
+  // One streamed request. The answer comes in pieces as Gemini writes it
+  // (thought summaries first, while it thinks), so a request that's working
+  // can be told from one that's stuck: no first piece within startTimeoutMs
+  // (when set), or no finished answer within timeoutMs, aborts it with a
+  // GeminiError (status 'timeout'). onStage('thinking' | 'writing') reports
+  // what the pieces show.
+  async function send(body, { timeoutMs, startTimeoutMs, onStage }) {
+    const modelId = currentModel();
     const ctrl = new AbortController();
-    let timer;
-    const timeout = new Promise((_, reject) => {
-      timer = setTimeout(() => {
-        ctrl.abort();
-        reject(new GeminiError(`Gemini didn't answer within ${Math.round(timeoutMs / 1000)} seconds. Try again in a moment.`, 'timeout'));
-      }, timeoutMs);
-    });
+    const started = Date.now();
+    let firstMs = null;
+    let stage = null;
+    let fail;
+    const timedOut = new Promise((_, reject) => { fail = reject; });
+    const stop = (message, kind) => {
+      ctrl.abort();
+      fail(Object.assign(new GeminiError(message, 'timeout'), { kind }));
+    };
+    const timers = [setTimeout(() => stop(`Gemini didn't finish within ${secs(timeoutMs)} seconds. Try again in a moment.`, 'too-slow'), timeoutMs)];
+    if (startTimeoutMs) {
+      timers.push(setTimeout(() => {
+        if (firstMs == null) stop(`Gemini didn't start answering within ${secs(startTimeoutMs)} seconds. Try again in a moment.`, 'no-start');
+      }, startTimeoutMs));
+    }
+    const alive = (next) => {
+      if (firstMs == null) firstMs = Date.now() - started;
+      if (next !== stage) {
+        stage = next;
+        onStage?.(next);
+      }
+    };
+
     const go = async () => {
       let res;
       try {
-        res = await fetchImpl(`${API}/${encodeURIComponent(currentModel())}:generateContent`, {
+        res = await fetchImpl(`${API}/${encodeURIComponent(modelId)}:streamGenerateContent?alt=sse`, {
           method: 'POST',
           headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
           body: JSON.stringify(body),
@@ -91,31 +133,77 @@ export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = global
         if (ctrl.signal.aborted) throw err;
         throw new GeminiError(`Couldn't reach Gemini (${err.message}). Check the connection and try again.`, 'network');
       }
-      const data = await res.json().catch(() => ({}));
-      return { res, data };
+      // Errors (limits, bad key) come back whole, straight away.
+      if (!res.ok) return { res, data: await res.json().catch(() => ({})) };
+      if (!/event-stream/i.test(res.headers.get('content-type') || '') || !res.body?.getReader) {
+        // Not streamed after all: one answer, or a JSON list of chunks.
+        const raw = await res.json().catch(() => ({}));
+        alive('writing');
+        return { res, data: mergeChunks(Array.isArray(raw) ? raw : [raw]) };
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      const chunks = [];
+      let buf = '';
+      const take = (event) => {
+        const payload = event.split('\n').filter((l) => l.startsWith('data:')).map((l) => l.slice(5).trim()).join('');
+        if (!payload) return;
+        let chunk;
+        try { chunk = JSON.parse(payload); } catch { return; }
+        chunks.push(chunk);
+        const parts = chunk.candidates?.[0]?.content?.parts || [];
+        alive(parts.some((p) => !p.thought && p.text) ? 'writing' : (stage || 'thinking'));
+      };
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true }).replace(/\r/g, '');
+        for (let i; (i = buf.indexOf('\n\n')) >= 0;) {
+          take(buf.slice(0, i));
+          buf = buf.slice(i + 2);
+        }
+      }
+      take(buf);
+      return { res, data: mergeChunks(chunks) };
     };
+
+    const timing = (outcome) => onTiming({ model: modelId, firstMs, totalMs: Date.now() - started, outcome, at: Date.now() });
     try {
-      return await Promise.race([go(), timeout]);
+      const out = await Promise.race([go(), timedOut]);
+      const status = out.data?.error?.code || out.res.status;
+      timing(status === 429 ? 'limit' : status >= 400 ? 'error' : 'ok');
+      return out;
+    } catch (err) {
+      timing(err.kind || 'error');
+      throw err;
     } finally {
-      clearTimeout(timer);
+      timers.forEach(clearTimeout);
     }
   }
 
   // Ask for JSON matching `schema` (OpenAPI-style subset Gemini accepts).
-  async function json(prompt, schema, { system, temperature = 0.2, timeoutMs = TIMEOUT_MS } = {}) {
-    const body = {
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { temperature, responseMimeType: 'application/json', responseSchema: schema },
-    };
-    if (system) body.systemInstruction = { parts: [{ text: system }] };
-
+  // timeoutMs: the whole answer; startTimeoutMs: its first piece (null for
+  // no separate limit). On the strong model, either one running out
+  // switches to the light model and asks again.
+  async function json(prompt, schema, { system, temperature = 0.2, timeoutMs = TIMEOUT_MS, startTimeoutMs = START_TIMEOUT_MS, onStage } = {}) {
     for (let attempt = 0; ; attempt++) {
+      const body = {
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature,
+          responseMimeType: 'application/json',
+          responseSchema: schema,
+          // Thought summaries stream while it thinks: the early sign it's working.
+          ...(noThoughts.has(currentModel()) ? {} : { thinkingConfig: { includeThoughts: true } }),
+        },
+      };
+      if (system) body.systemInstruction = { parts: [{ text: system }] };
       let res;
       let data;
       try {
-        ({ res, data } = await send(body, timeoutMs));
+        ({ res, data } = await send(body, { timeoutMs, startTimeoutMs, onStage }));
       } catch (err) {
-        // Strong model not answering: try the light one now.
+        // Strong model stuck or slow: try the light one now.
         if (err.status === 'timeout' && onStrong()) {
           modelSwitch.downgrade({ reason: 'slow' });
           attempt--;
@@ -123,7 +211,15 @@ export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = global
         }
         throw err;
       }
-      if (res.status === 429) {
+      // An error can also arrive inside the stream.
+      const status = data?.error?.code || res.status;
+      if (status === 400 && !noThoughts.has(currentModel()) && /thinking|thought/i.test(data?.error?.message || '')) {
+        // This model doesn't do thought summaries: ask again without them.
+        noThoughts.add(currentModel());
+        attempt--;
+        continue;
+      }
+      if (status === 429) {
         const waitMs = retryDelayMs(data, res.headers);
         const daily = isDailyLimit(data, waitMs);
         if (onStrong()) {
@@ -141,7 +237,7 @@ export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = global
           ? `Gemini's free daily limit is used up${modelSwitch ? ' on both models' : ''}. It resets in ${waitText(waitMs || 86_400_000)}. Adding billing to the Gemini key raises the limit.`
           : 'Gemini is getting too many requests right now. Wait a minute and try again.', 429);
       }
-      if (res.status >= 500) {
+      if (status >= 500) {
         // Overloaded: one more try on the strong model, then the light one.
         if (onStrong() && attempt >= 1) {
           modelSwitch.downgrade({ reason: 'busy' });
@@ -152,14 +248,14 @@ export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = global
           await sleep(2000 * 2 ** attempt);
           continue;
         }
-        throw new GeminiError(`Gemini is having trouble right now (error ${res.status}). Try again in a minute.`, res.status);
+        throw new GeminiError(`Gemini is having trouble right now (error ${status}). Try again in a minute.`, status);
       }
-      if (!res.ok) {
+      if (status >= 400) {
         const message = data?.error?.message || res.statusText;
-        if (/api key/i.test(message) || res.status === 401 || res.status === 403) {
-          throw new GeminiError("Gemini doesn't accept this API key. Check it in Config.", res.status);
+        if (/api key/i.test(message) || status === 401 || status === 403) {
+          throw new GeminiError("Gemini doesn't accept this API key. Check it in Config.", status);
         }
-        throw new GeminiError(`Gemini ${res.status}: ${message}`, res.status);
+        throw new GeminiError(`Gemini ${status}: ${message}`, status);
       }
       const candidate = data.candidates?.[0];
       const text = candidate?.content?.parts?.map((p) => p.text || '').join('') || '';
@@ -177,6 +273,35 @@ export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = global
   }
 
   return { json, get model() { return currentModel(); } };
+}
+
+// For "Check setup": per model, how fast the recent requests on this device
+// started and finished, and how many ran out of time or hit a limit.
+export function summarizeTimings(records = []) {
+  const median = (xs) => {
+    const s = [...xs].sort((a, b) => a - b);
+    return s.length ? s[Math.floor((s.length - 1) / 2)] : null;
+  };
+  const byModel = new Map();
+  for (const r of records) {
+    if (!byModel.has(r.model)) byModel.set(r.model, []);
+    byModel.get(r.model).push(r);
+  }
+  return [...byModel].map(([model, rs]) => {
+    const firsts = rs.map((r) => r.firstMs).filter((x) => x != null);
+    const done = rs.filter((r) => r.outcome === 'ok').map((r) => r.totalMs);
+    return {
+      model,
+      count: rs.length,
+      firstTypical: median(firsts),
+      firstSlowest: firsts.length ? Math.max(...firsts) : null,
+      doneTypical: median(done),
+      doneSlowest: done.length ? Math.max(...done) : null,
+      noStart: rs.filter((r) => r.outcome === 'no-start').length,
+      tooSlow: rs.filter((r) => r.outcome === 'too-slow').length,
+      limit: rs.filter((r) => r.outcome === 'limit').length,
+    };
+  });
 }
 
 // Schema helpers to keep prompts readable.

@@ -32,7 +32,7 @@ export async function generateCook(gemini, recipe, instructions, { now = new Dat
   const yieldText = recipe.yieldText || (recipe.servings ? `${recipe.servings} servings` : 'not stated');
   const prompt = `Recipe: ${recipe.name}\nYield: ${yieldText}\n\nIngredients:\n${recipe.ingredients.map((i) => `- ${i}`).join('\n')}\n\nOriginal steps:\n${instructions.map((s, i) => `${i + 1}. ${s}`).join('\n')}`;
   // Longer answers than the other prompts, so more time before giving up.
-  let cook = toCook(await gemini.json(prompt, SCHEMA, { system: SYSTEM, temperature: 0.1, timeoutMs: 60_000 }));
+  let cook = toCook(await gemini.json(prompt, SCHEMA, { system: SYSTEM, temperature: 0.1, timeoutMs: 60_000, startTimeoutMs: null }));
   if (!cook) throw new Error('Gemini did not return any steps.');
 
   // Gemini sometimes drops an ingredient. Point out which and ask once for a
@@ -42,7 +42,7 @@ export async function generateCook(gemini, recipe, instructions, { now = new Dat
     const draft = `Before you start:\n${cook.prep.map((p) => `- ${p}`).join('\n') || '- (nothing)'}\n\nSteps:\n${cook.steps.map((st, i) => `${i + 1}. ${st.text}${st.timerMinutes ? ` [timer: ${st.timerMinutes} min, ${st.timerLabel}]` : ''}`).join('\n')}`;
     const fix = `${prompt}\n\nYour draft:\n${draft}\n\nThese ingredients from the list aren't named in the draft:\n${left.map((i) => `- ${i}`).join('\n')}\n\nRewrite the draft so each of them is named where the original uses it, the first time with its amount in braces. Keep everything else, and follow the same rules. If the original never uses one of them, leave it out.`;
     try {
-      const revised = toCook(await gemini.json(fix, SCHEMA, { system: SYSTEM, temperature: 0.1, timeoutMs: 60_000 }));
+      const revised = toCook(await gemini.json(fix, SCHEMA, { system: SYSTEM, temperature: 0.1, timeoutMs: 60_000, startTimeoutMs: null }));
       if (revised && missingIngredients(recipe.ingredients, revised).length < left.length) cook = revised;
     } catch { /* keep the first draft; the Cook screen flags what's missing */ }
   }

@@ -1,7 +1,7 @@
 // DinnerCart UI controller. Plain DOM; views are re-rendered from `state`.
 import { generateCook } from './cook.js';
 import { NoStepsError, createCookView } from './cook-view.js';
-import { LIGHT_MODEL, createGemini, createModelSwitch, waitText } from './gemini.js';
+import { DEFAULT_MODEL, LIGHT_MODEL, START_TIMEOUT_MS, createGemini, createModelSwitch, summarizeTimings, waitText } from './gemini.js';
 import { findStores as findStoresNearby, lastDirectProblem, lastSearchRoute, productSearcher, resetDirectSearch } from './kroger.js';
 import { createRelay } from './relay.js';
 import { findRecipes, scaleFor } from './recipes.js';
@@ -63,7 +63,9 @@ const modelSwitch = newModelSwitch((_tier, _model, reason, until) => {
 function renderModelToggle() {
   document.querySelectorAll('[name=modelTier]').forEach((r) => { r.checked = r.value === modelSwitch.tier; });
 }
-const gemini = () => createGemini({ apiKey: settings.geminiKey, model: modelSwitch });
+// Every request's timing is kept on this device for "Check setup".
+const newGemini = (model) => createGemini({ apiKey: settings.geminiKey, model, onTiming: storage.addGeminiTiming });
+const gemini = () => newGemini(modelSwitch);
 
 // ---------------------------------------------------------------- helpers
 
@@ -144,6 +146,8 @@ function allKnownRecipes() {
 }
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+// 1500 -> "1.5 s", 5000 -> "5 s".
+const seconds = (ms) => (ms == null ? '–' : `${Number.isInteger(ms / 1000) ? ms / 1000 : (ms / 1000).toFixed(1)} s`);
 const isPicked = (url) => state.selected.some((s) => s.recipe.url === url);
 const savedEntry = (url) => (library || []).find((r) => r.url === url);
 const pickSignature = () => state.selected.map((s) => `${s.recipe.url}@${s.servings}`).join('|');
@@ -627,7 +631,7 @@ async function loadCook(recipe, { fresh = false } = {}) {
     // The strong model for Cook even when the rest is on Light (accuracy
     // matters more than speed); light only while Strong's daily limit is used
     // up, or if Strong fails on this one.
-    cook = await generateCook(createGemini({ apiKey: settings.geminiKey, model: newModelSwitch(() => {}) }), recipe, instructions);
+    cook = await generateCook(newGemini(newModelSwitch(() => {})), recipe, instructions);
     storage.saveCook(recipe.url, cook);
   }
   if (saved) {
@@ -750,9 +754,20 @@ async function diagnose() {
   }
   try {
     const r = await gemini().json('Reply with {"ok": true}.', { type: 'OBJECT', properties: { ok: { type: 'BOOLEAN' } }, required: ['ok'] });
-    rows.push(line(r.ok === true, `Gemini (${modelSwitch.model}) responding.`));
+    const t = storage.loadGeminiTimings().at(-1);
+    rows.push(line(r.ok === true, `Gemini (${modelSwitch.model}) responding${t ? `: first reply ${seconds(t.firstMs)}, done ${seconds(t.totalMs)}` : ''}.`));
   } catch (err) {
     rows.push(line(false, `Gemini: ${err.message}`));
+  }
+  // How fast Gemini has really been on this device, per model.
+  for (const t of summarizeTimings(storage.loadGeminiTimings())) {
+    const name = { [DEFAULT_MODEL]: 'Strong', [LIGHT_MODEL]: 'Light' }[t.model] || t.model;
+    const trouble = [
+      t.noStart && `${t.noStart} didn't start within ${seconds(START_TIMEOUT_MS)}`,
+      t.tooSlow && `${t.tooSlow} didn't finish in time`,
+      t.limit && `${t.limit} hit a limit`,
+    ].filter(Boolean);
+    rows.push(line(!t.noStart && !t.tooSlow, `${name} model, last ${plural(t.count, 'request')} on this device: first reply typically ${seconds(t.firstTypical)} (slowest ${seconds(t.firstSlowest)}), done typically ${seconds(t.doneTypical)} (slowest ${seconds(t.doneSlowest)})${trouble.length ? `; ${trouble.join(', ')}` : ''}.`));
   }
   // Build-plan question: does Kroger allow direct browser calls (CORS)?
   // Real product search, reporting whether it went direct from this device or via the relay.
@@ -1058,7 +1073,7 @@ async function refreshDailyIdeas() {
       await savePrefsRemote({ dailyIdeas });
       return;
     }
-    const fresh = await generateIdeas(createGemini({ apiKey: settings.geminiKey, model: LIGHT_MODEL }), { liked: library || [] });
+    const fresh = await generateIdeas(newGemini(LIGHT_MODEL), { liked: library || [] });
     if (!fresh) return;
     use({ date: today, ideas: fresh });
     await savePrefsRemote({ dailyIdeas: dailyIdeas });

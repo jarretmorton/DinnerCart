@@ -52,7 +52,7 @@ test('a strong model that never answers times out and drops to light; light timi
   assert.equal(changes[0][3], null, 'only until reload');
 
   const stuck = createGemini({ apiKey: 'k', model: 'light-m', fetchImpl: async (_url, init) => hang(init) });
-  await assert.rejects(stuck.json('p', {}, { timeoutMs: 30 }), /Gemini didn't answer within 0 seconds\. Try again in a moment\./);
+  await assert.rejects(stuck.json('p', {}, { timeoutMs: 30 }), /Gemini didn't finish within 0 seconds\. Try again in a moment\./);
 });
 
 test('an overloaded strong model gets one more try, then light', async () => {
@@ -81,4 +81,103 @@ test('a switch can start on light (strong paused); helpers', () => {
   assert.equal(waitText(14_389_000), 'about 4 hours');
   assert.equal(waitText(20 * 60_000), 'about 20 minutes');
   assert.equal(waitText(10_000), 'about 1 minute');
+});
+
+// A streamed answer: Server-Sent Events, delivered in arbitrary pieces.
+const sse = (events, { pause = 0 } = {}) => {
+  const text = events.map((e) => `data: ${JSON.stringify(e)}\r\n\r\n`).join('');
+  const bytes = new TextEncoder().encode(text);
+  return new Response(new ReadableStream({
+    async start(ctrl) {
+      for (let i = 0; i < bytes.length; i += 37) { // split mid-event on purpose
+        ctrl.enqueue(bytes.slice(i, i + 37));
+        if (pause) await new Promise((r) => setTimeout(r, pause));
+      }
+      ctrl.close();
+    },
+  }), { status: 200, headers: { 'content-type': 'text/event-stream' } });
+};
+const textChunk = (text) => ({ candidates: [{ content: { parts: [{ text }] } }] });
+
+test('streams: thoughts then text, stages reported, answer joined, timing recorded', async () => {
+  const seen = [];
+  const timings = [];
+  const stages = [];
+  const fetchImpl = async (url, init) => {
+    seen.push({ url, body: JSON.parse(init.body) });
+    return sse([
+      { candidates: [{ content: { parts: [{ text: 'Planning queries', thought: true }] } }] },
+      textChunk('{"queries": ["sweet potato'),
+      textChunk(' chili", "black bean chili"]}'),
+      { candidates: [{ content: { parts: [] }, finishReason: 'STOP' }] },
+    ]);
+  };
+  const g = createGemini({ apiKey: 'k', model: 'm', fetchImpl, onTiming: (t) => timings.push(t) });
+  const out = await g.json('p', {}, { onStage: (s) => stages.push(s) });
+  assert.deepEqual(out, { queries: ['sweet potato chili', 'black bean chili'] }, 'thought text left out');
+  assert.match(seen[0].url, /\/models\/m:streamGenerateContent\?alt=sse$/);
+  assert.deepEqual(seen[0].body.generationConfig.thinkingConfig, { includeThoughts: true });
+  assert.deepEqual(stages, ['thinking', 'writing']);
+  assert.equal(timings.length, 1);
+  assert.equal(timings[0].model, 'm');
+  assert.equal(timings[0].outcome, 'ok');
+  assert.ok(timings[0].firstMs != null && timings[0].firstMs <= timings[0].totalMs);
+});
+
+test('no first piece within the start limit: strong drops to light; Match-style calls can opt out', async () => {
+  const { sw, changes } = switchLog();
+  const timings = [];
+  // Strong: accepted (headers), then silence.
+  const silent = (init) => new Response(new ReadableStream({ start(ctrl) { init.signal.addEventListener('abort', () => ctrl.error(new DOMException('aborted', 'AbortError'))); } }), { status: 200, headers: { 'content-type': 'text/event-stream' } });
+  const fetchImpl = async (url, init) => (modelOf(url) === 'strong-m' ? silent(init) : sse([textChunk('{"ok":true}')]));
+  const g = createGemini({ apiKey: 'k', model: sw, fetchImpl, onTiming: (t) => timings.push(t) });
+  const started = Date.now();
+  assert.deepEqual(await g.json('p', {}, { startTimeoutMs: 40, timeoutMs: 5000 }), { ok: true });
+  assert.ok(Date.now() - started < 1000, 'gave up on the start limit, not the 5 s one');
+  assert.deepEqual(changes.map((c) => c[2]), ['slow']);
+  assert.deepEqual(timings.map((t) => [t.model, t.outcome]), [['strong-m', 'no-start'], ['light-m', 'ok']]);
+
+  // A slow starter is fine when the call opts out of the start limit.
+  const slowStart = createGemini({ apiKey: 'k', model: 'm', fetchImpl: async () => { await new Promise((r) => setTimeout(r, 80)); return sse([textChunk('{"ok":true}')]); } });
+  assert.deepEqual(await slowStart.json('p', {}, { startTimeoutMs: null, timeoutMs: 2000 }), { ok: true });
+  // And a stream that starts but never finishes hits the overall limit.
+  const neverDone = createGemini({ apiKey: 'k', model: 'm', fetchImpl: async (_u, init) => silent(init) });
+  await assert.rejects(neverDone.json('p', {}, { startTimeoutMs: null, timeoutMs: 60 }), /didn't finish within 0 seconds/);
+});
+
+test('a model without thought summaries is asked again without them; errors inside the stream count', async () => {
+  const bodies = [];
+  const fetchImpl = async (_url, init) => {
+    const body = JSON.parse(init.body);
+    bodies.push(body);
+    if (body.generationConfig.thinkingConfig) return new Response('{"error":{"code":400,"message":"Thinking is not supported for this model."}}', { status: 400 });
+    return sse([textChunk('{"ok":true}')]);
+  };
+  const g = createGemini({ apiKey: 'k', model: 'm', fetchImpl });
+  assert.deepEqual(await g.json('p', {}), { ok: true });
+  assert.deepEqual(await g.json('p', {}), { ok: true });
+  assert.deepEqual(bodies.map((b) => Boolean(b.generationConfig.thinkingConfig)), [true, false, false], 'remembered for the model');
+
+  const { sw, changes } = switchLog();
+  const inStream = createGemini({ apiKey: 'k', model: sw, fetchImpl: async (url) => (modelOf(url) === 'strong-m'
+    ? sse([{ error: { code: 429, message: 'Quota exceeded for metric: free_tier_requests', details: [{ '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay: '3600s' }] } }])
+    : sse([textChunk('{"ok":true}')])) });
+  assert.deepEqual(await inStream.json('p', {}), { ok: true });
+  assert.equal(changes[0][2], 'limit');
+  assert.ok(changes[0][3] > Date.now() + 3_500_000, 'daily limit remembered');
+});
+
+test('summarizeTimings: per model, typical and slowest, trouble counted', async () => {
+  const { summarizeTimings } = await import('../web/js/gemini.js');
+  const rs = [
+    { model: 's', firstMs: 1000, totalMs: 6000, outcome: 'ok' },
+    { model: 's', firstMs: 3000, totalMs: 9000, outcome: 'ok' },
+    { model: 's', firstMs: null, totalMs: 5000, outcome: 'no-start' },
+    { model: 'l', firstMs: 400, totalMs: 1200, outcome: 'ok' },
+    { model: 'l', firstMs: null, totalMs: 100, outcome: 'limit' },
+  ];
+  const [s, l] = summarizeTimings(rs);
+  assert.deepEqual(s, { model: 's', count: 3, firstTypical: 1000, firstSlowest: 3000, doneTypical: 6000, doneSlowest: 9000, noStart: 1, tooSlow: 0, limit: 0 });
+  assert.equal(l.limit, 1);
+  assert.equal(l.doneTypical, 1200);
 });

@@ -53,6 +53,12 @@ const STRONG_PAUSE_KEY = 'dinnercart.strongPausedUntil';
 export const loadStrongPausedUntil = () => Number(read(STRONG_PAUSE_KEY, 0)) || 0;
 export const saveStrongPausedUntil = (ms) => write(STRONG_PAUSE_KEY, ms);
 
+// The last 40 Gemini requests on this device, for "Check setup":
+// {model, firstMs, totalMs, outcome, at}.
+const TIMINGS_KEY = 'dinnercart.geminiTimings';
+export const loadGeminiTimings = () => read(TIMINGS_KEY, []);
+export const addGeminiTiming = (t) => write(TIMINGS_KEY, [...loadGeminiTimings(), t].slice(-40));
+
 // Today's Gemini-generated "What sounds good?" ideas: {date, ideas}.
 export const loadIdeas = () => read(IDEAS_KEY, null);
 export const saveIdeas = (v) => write(IDEAS_KEY, v);

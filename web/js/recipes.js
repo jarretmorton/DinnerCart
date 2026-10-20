@@ -27,7 +27,8 @@ const QUERY_RULES = 'Each query should include the word "recipe", be 3-8 words, 
 // `liked` (saved recipes) switches to Suggest: queries for new dishes in the
 // same vein, with any filled-in criteria as extra guidance. With `novel` too
 // (New), it's the opposite: dishes unlike anything they've saved.
-export async function generateQueries(gemini, criteria, { liked, novel = false } = {}) {
+// onStage: see gemini.json (what Gemini is doing, for the status line).
+export async function generateQueries(gemini, criteria, { liked, novel = false, onStage } = {}) {
   const extra = describeCriteria(criteria);
   let prompt;
   const rules = `${QUERY_RULES}${criteria.easy ? ' They want it easy: put a word like "easy", "simple", "one-pan" or "5-ingredient" in at least two of the queries.' : ''}`;
@@ -42,7 +43,7 @@ export async function generateQueries(gemini, criteria, { liked, novel = false }
   } else {
     prompt = `A couple wants dinner ideas. They haven't saved any recipes yet, so suggest popular, well-loved weeknight dinners with variety.${extra ? `\nThey said:\n${extra}` : ''}\n\nWrite 3 different web search queries. ${rules}`;
   }
-  const out = await gemini.json(prompt, S.obj({ queries: S.arr(S.str()) }), { temperature: liked ? 0.9 : 0.7 });
+  const out = await gemini.json(prompt, S.obj({ queries: S.arr(S.str()) }), { temperature: liked ? 0.9 : 0.7, onStage });
   return (out.queries || []).map((q) => String(q).trim()).filter(Boolean).slice(0, 3);
 }
 
@@ -109,7 +110,7 @@ export function filterRecipes(recipes, c) {
   return { kept, rejected };
 }
 
-export async function rankRecipes(gemini, recipes, criteria, { liked, novel = false } = {}) {
+export async function rankRecipes(gemini, recipes, criteria, { liked, novel = false, onStage } = {}) {
   if (!recipes.length) return [];
   const list = recipes.map((r, i) => [
     `[${i}] ${r.name} (${r.site})`,
@@ -124,6 +125,7 @@ export async function rankRecipes(gemini, recipes, criteria, { liked, novel = fa
       ? `A couple is choosing what to cook. Recipes they've saved (their taste):\n${describeTaste(liked)}\n${describeCriteria(criteria) ? `\nThey also said:\n${describeCriteria(criteria)}\n` : ''}\nCandidate recipes:\n${list}\n\nScore each recipe 0-100 for how likely they are to enjoy it given their taste (and anything they said), favoring variety over near-copies of what they've saved, then ratings with many reviews. Recipes that clearly contain an excluded ingredient score below 10. Give a one-sentence reason that connects it to their taste.`
       : `A couple is choosing what to cook. Their request:\n${describeCriteria(criteria) || 'Anything good for dinner'}\n\nCandidate recipes:\n${list}\n\nScore each recipe 0-100 for how well it fits the request (fit matters most, then ratings with many reviews, then a reasonable ingredient list). Recipes that clearly contain an excluded ingredient score below 10. Give a one-sentence reason a person would find useful (what makes it a good or poor fit).`,
     S.obj({ ranking: S.arr(S.obj({ index: S.int(), score: S.int(), reason: S.str() })) }),
+    { onStage },
   );
   const scored = recipes.map((r) => ({ recipe: r, score: 0, reason: '' }));
   for (const x of out.ranking || []) {
@@ -134,8 +136,11 @@ export async function rankRecipes(gemini, recipes, criteria, { liked, novel = fa
 
 // Pass `liked` (saved recipes, possibly empty) for Suggest, plus `novel` for New.
 export async function findRecipes({ gemini, relay, criteria, liked, novel = false, maxPages = 15, onProgress = () => {} }) {
-  onProgress(novel ? 'Looking for something different…' : liked ? 'Thinking about what you might like…' : 'Writing search queries…');
-  const queries = await generateQueries(gemini, criteria, { liked, novel });
+  // "· Gemini is thinking" / "· Gemini is writing" as the answer streams in.
+  const withStage = (text) => (stage) => onProgress(`${text} · Gemini is ${stage}`);
+  const first = novel ? 'Looking for something different…' : liked ? 'Thinking about what you might like…' : 'Writing search queries…';
+  onProgress(first);
+  const queries = await generateQueries(gemini, criteria, { liked, novel, onStage: withStage(first) });
   if (!queries.length) throw new Error('Gemini did not return any search queries.');
 
   onProgress(`Searching: ${queries.join(' · ')}`);
@@ -151,7 +156,7 @@ export async function findRecipes({ gemini, relay, criteria, liked, novel = fals
   onProgress(`Ranking ${kept.length} recipes…`);
   let ranked;
   try {
-    ranked = await rankRecipes(gemini, kept, criteria, { liked, novel });
+    ranked = await rankRecipes(gemini, kept, criteria, { liked, novel, onStage: withStage(`Ranking ${kept.length} recipes…`) });
   } catch (err) {
     ranked = kept.map((recipe) => ({ recipe, score: 0, reason: `(not ranked: ${err.message})` }));
   }
