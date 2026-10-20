@@ -32,13 +32,18 @@ jobs:
           key: eval-products-${{ hashFiles('eval/cases.json') }}
       - name: Run eval
         if: steps.cfg.outputs.ready == 'true'
-        run: node eval/run.mjs | tee eval-output.txt
+        # pipefail: without it the step takes tee's exit code and a crashed
+        # eval (e.g. Gemini's daily limit) still shows as passed.
+        run: |
+          set -o pipefail
+          node eval/run.mjs 2>&1 | tee eval-output.txt
+      # Summary and results even when the eval failed, so the error shows on the run's page.
       - name: Summary
-        if: steps.cfg.outputs.ready == 'true'
+        if: always() && steps.cfg.outputs.ready == 'true'
         run: |
           { echo '```'; cat eval-output.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
-        if: steps.cfg.outputs.ready == 'true'
+        if: always() && steps.cfg.outputs.ready == 'true'
         with:
           name: eval-results
           path: eval/results/latest.json
