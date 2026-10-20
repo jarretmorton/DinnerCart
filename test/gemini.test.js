@@ -113,7 +113,7 @@ test('streams: thoughts then text, stages reported, answer joined, timing record
     ]);
   };
   const g = createGemini({ apiKey: 'k', model: 'm', fetchImpl, onTiming: (t) => timings.push(t) });
-  const out = await g.json('p', {}, { onStage: (s) => stages.push(s) });
+  const out = await g.json('p', {}, { stream: true, onStage: (s) => stages.push(s) });
   assert.deepEqual(out, { queries: ['sweet potato chili', 'black bean chili'] }, 'thought text left out');
   assert.match(seen[0].url, /\/models\/m:streamGenerateContent\?alt=sse$/);
   assert.equal(seen[0].body.generationConfig.thinkingConfig, undefined, 'no thinking settings: they slowed the light model down');
@@ -191,11 +191,13 @@ test('one gate: 30 s to show a sign of life, a minute in all; a long answer that
   assert.deepEqual(await g.json('p', {}, { startTimeoutMs: 40, timeoutMs: 1000 }), { ok: true });
 });
 
-test('stream: false uses the regular request', async () => {
+test('regular requests by default; stream: true streams', async () => {
   const urls = [];
   const g = createGemini({ apiKey: 'k', model: 'm', fetchImpl: async (url) => { urls.push(url); return ok(); } });
-  assert.deepEqual(await g.json('p', {}, { stream: false }), { ok: true });
+  assert.deepEqual(await g.json('p', {}), { ok: true });
   assert.match(urls[0], /\/models\/m:generateContent$/);
+  await g.json('p', {}, { stream: true });
+  assert.match(urls[1], /\/models\/m:streamGenerateContent\?alt=sse$/);
 });
 
 test('listModels and pickTestModels: numbered Flash-Lite versions first, no previews or special models', async () => {

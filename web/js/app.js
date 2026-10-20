@@ -808,8 +808,8 @@ async function testGeminiSpeed() {
   const model = modelSwitch.model;
   // The current model one way then the other; the other models meanwhile.
   const current = (async () => {
-    const streamed = await timed(() => gemini().json(...OK_TEST));
-    const regular = await timed(() => gemini().json(...OK_TEST, { stream: false }));
+    const streamed = await timed(() => gemini().json(...OK_TEST, { stream: true }));
+    const regular = await timed(() => gemini().json(...OK_TEST));
     return line(true, `${model}: streamed ${streamed}, regular request ${regular}.`);
   })();
   // Up to three other models. One Gemini lists but won't answer from (404,

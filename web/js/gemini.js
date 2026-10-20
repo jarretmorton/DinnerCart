@@ -97,7 +97,7 @@ export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = global
   // (when set), or no finished answer within timeoutMs, aborts it with a
   // GeminiError (status 'timeout'). onStage('thinking' | 'writing') reports
   // what the pieces show.
-  async function send(body, { timeoutMs, startTimeoutMs, onStage, stream = true }) {
+  async function send(body, { timeoutMs, startTimeoutMs, onStage, stream = false }) {
     const modelId = currentModel();
     const ctrl = new AbortController();
     const started = Date.now();
@@ -189,9 +189,11 @@ export function createGemini({ apiKey, model = DEFAULT_MODEL, fetchImpl = global
   // startTimeoutMs: its first piece; timeoutMs: the whole answer (see the
   // constants above). On the strong model, either one running out switches
   // to the light model and asks again.
-  // stream: false asks with the regular (one-piece) request instead, for
-  // Check setup's speed comparison.
-  async function json(prompt, schema, { system, temperature = 0.2, timeoutMs = TIMEOUT_MS, startTimeoutMs = START_TIMEOUT_MS, onStage, stream = true } = {}) {
+  // Regular (one-piece) requests by default: on the phone the streamed
+  // request took about 10 s longer (2.9 s vs 12.9 s for a one-line test),
+  // and the answer came in one piece anyway. stream: true is kept for the
+  // speed test.
+  async function json(prompt, schema, { system, temperature = 0.2, timeoutMs = TIMEOUT_MS, startTimeoutMs = START_TIMEOUT_MS, onStage, stream = false } = {}) {
     const body = {
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: { temperature, responseMimeType: 'application/json', responseSchema: schema },
