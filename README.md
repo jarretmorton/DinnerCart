@@ -343,7 +343,8 @@ npm run eval -- --min=0.85      # fail below 85% product accuracy
 It reports **product accuracy**, **search recall** (whether any correct product
 was in the search results at all, which separates search misses from pick
 misses), and **package-count accuracy**. Full results are written to
-`eval/results/latest.json`. Run it after every resolver or prompt change. The
+`eval/results/latest.json` (without your store's ID, since the workflow
+publishes that file). Run it after every resolver or prompt change. The
 *Resolver eval* workflow also runs it on pushes to `main` that touch the
 resolver, once the secrets are set. Those runs use the light model
 (`gemini-flash-lite-latest`), so they don't spend the strong model's small free

@@ -111,7 +111,9 @@ console.log(`\nProduct accuracy ${fmt(summary.productAccuracy)} · search recall
 await mkdir(join(here, '.cache'), { recursive: true });
 if (useCache) await writeFile(cacheFile, JSON.stringify(cache));
 await mkdir(join(here, 'results'), { recursive: true });
-await writeFile(join(here, 'results', 'latest.json'), JSON.stringify({ at: new Date().toISOString(), model: gemini.model, locationId, summary, rows }, null, 2));
+// No locationId: the Resolver eval workflow publishes this file, and the
+// household's store isn't anyone else's business.
+await writeFile(join(here, 'results', 'latest.json'), JSON.stringify({ at: new Date().toISOString(), model: gemini.model, summary, rows }, null, 2));
 
 if (args.min && summary.productAccuracy < Number(args.min)) {
   console.error(`Below --min=${args.min}`);
