@@ -767,6 +767,8 @@ async function savePrefsRemote(patch) {
 }
 
 const line = (ok, text) => `<li>${ok ? '✅' : '⚠️'} ${h(text)}</li>`;
+// For information, not a problem.
+const note = (text) => `<li class="note">${h(text)}</li>`;
 const OK_TEST = ['Reply with {"ok": true}.', { type: 'OBJECT', properties: { ok: { type: 'BOOLEAN' } }, required: ['ok'] }];
 
 async function diagnose() {
@@ -807,7 +809,12 @@ async function diagnose() {
     rows.push(Array.isArray(milk) && milk.length
       ? line(true, `Fred Meyer product search works ${route} (${milk.length} results for "milk").`)
       : line(false, `Fred Meyer product search failed ${route}: ${milk?.error || 'no results'}`));
-    if (lastSearchRoute() !== 'direct' && lastDirectProblem()) rows.push(line(false, `Direct search from this device: ${lastDirectProblem()}.`));
+    // The relay is the normal fallback, so a failed direct search only matters when the relay failed too.
+    if (lastSearchRoute() !== 'direct' && lastDirectProblem()) {
+      rows.push(Array.isArray(milk) && milk.length
+        ? note(`Direct search from this device isn't available, so searches go through the relay. Nothing to fix. (${lastDirectProblem()})`)
+        : line(false, `Direct search from this device: ${lastDirectProblem()}.`));
+    }
   } catch (err) {
     rows.push(line(false, `Fred Meyer product search: ${err.message}`));
   }

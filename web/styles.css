@@ -309,6 +309,7 @@ body:not(.cook-open) .timers { bottom: 72px; }
 
 .diagnostics { list-style: none; padding: 0; margin: 0; font-size: 0.9rem; }
 .diagnostics li { padding: 3px 0; }
+.diagnostics .note { color: var(--muted); padding-left: 1.6em; }
 .stores label { flex-direction: row; align-items: center; gap: 8px; color: var(--text); padding: 6px 0; }
 .stores input { width: auto; }
 
