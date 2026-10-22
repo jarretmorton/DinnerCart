@@ -1,0 +1,67 @@
+name: Relay check
+
+# Run by hand (Actions → Relay check → Run workflow) when the app can't reach
+# the relay. Calls the routes Check setup uses, the way the phone does (with
+# this site's Origin), and prints each answer's status, its CORS header and,
+# for errors, the first part of the reply. A browser hides all of that behind
+# "Failed to fetch"; this shows it. Never prints the password or a token
+# (the repository and its logs may be public).
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      RELAY_PASSWORD: ${{ secrets.RELAY_PASSWORD }}
+      RELAY_URL: ${{ vars.RELAY_URL }}
+      ORIGIN: https://${{ github.repository_owner }}.github.io
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Call the relay
+        run: |
+          node --input-type=module <<'EOF'
+          const base = process.env.RELAY_URL.replace(/\/+$/, '');
+          const headers = { origin: process.env.ORIGIN, 'x-relay-password': process.env.RELAY_PASSWORD };
+          let failed = false;
+          async function call(method, path, body) {
+            const started = Date.now();
+            try {
+              const res = await fetch(`${base}${path}`, {
+                method,
+                headers: { ...headers, ...(body ? { 'content-type': 'application/json' } : {}) },
+                body: body ? JSON.stringify(body) : undefined,
+                signal: AbortSignal.timeout(60_000),
+              });
+              const text = await res.text();
+              const cors = res.headers.get('access-control-allow-origin') || 'MISSING';
+              let shape = '';
+              try {
+                const data = JSON.parse(text);
+                shape = res.ok ? `keys: ${Object.keys(data).join(', ')}` : `error: ${JSON.stringify(data.error || data).slice(0, 300)}`;
+                // Product search reports a failed term inside a 200.
+                if (res.ok && data.errors && Object.keys(data.errors).length) {
+                  failed = true;
+                  shape += ` · errors: ${JSON.stringify(data.errors).slice(0, 300)}`;
+                }
+                if (res.ok && data.results) shape += ` · ${Object.values(data.results).map((r) => r.length).join('/')} results`;
+              } catch {
+                shape = `not JSON (${res.headers.get('content-type')}): ${text.replace(/\s+/g, ' ').slice(0, 300)}`;
+              }
+              if (!res.ok || cors === 'MISSING') failed = true;
+              console.log(`${method} ${path} -> ${res.status} in ${Date.now() - started} ms · CORS ${cors} · ${shape}`);
+              return res.ok ? JSON.parse(text) : null;
+            } catch (err) {
+              failed = true;
+              console.log(`${method} ${path} -> no answer after ${Date.now() - started} ms: ${err.message}`);
+              return null;
+            }
+          }
+          await call('GET', '/health');
+          const prefs = await call('GET', '/prefs');
+          await call('GET', '/kroger/token');
+          await call('POST', '/kroger/products', { terms: ['milk'], locationId: prefs?.prefs?.store?.locationId });
+          process.exit(failed ? 1 : 0);
+          EOF
