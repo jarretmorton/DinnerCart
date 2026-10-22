@@ -2,7 +2,7 @@
 import { generateCook } from './cook.js';
 import { NoStepsError, createCookView } from './cook-view.js';
 import { DEFAULT_MODEL, LIGHT_MODEL, START_TIMEOUT_MS, createGemini, createModelSwitch, listModels, pickTestModels, summarizeTimings, waitText } from './gemini.js';
-import { findStores as findStoresNearby, lastDirectProblem, lastSearchRoute, productSearcher, resetDirectSearch } from './kroger.js';
+import { findStores as findStoresNearby, productSearcher } from './kroger.js';
 import { createRelay } from './relay.js';
 import { findRecipes, scaleFor } from './recipes.js';
 import { MAX_CANDIDATES, estimateTotal, heuristicPick, itemKey, resolveIngredients, setPackages } from './resolver.js';
@@ -501,8 +501,7 @@ async function buildCart() {
     state.cart = { ...result, signature: pickSignature(), builtAt: Date.now(), sentAt: null };
     persist();
     const failed = result.items.filter((i) => i.searchError);
-    const direct = lastDirectProblem() ? ` Searching directly from this device also failed: ${lastDirectProblem()}.` : '';
-    setStatus(status, failed.length ? `Fred Meyer search failed for ${plural(failed.length, 'item')}: ${failed[0].searchError}.${direct}` : '', 'error');
+    setStatus(status, failed.length ? `Fred Meyer search failed for ${plural(failed.length, 'item')}: ${failed[0].searchError}.` : '', 'error');
     renderCart();
   });
 }
@@ -767,8 +766,6 @@ async function savePrefsRemote(patch) {
 }
 
 const line = (ok, text) => `<li>${ok ? '✅' : '⚠️'} ${h(text)}</li>`;
-// For information, not a problem.
-const note = (text) => `<li class="note">${h(text)}</li>`;
 const OK_TEST = ['Reply with {"ok": true}.', { type: 'OBJECT', properties: { ok: { type: 'BOOLEAN' } }, required: ['ok'] }];
 
 async function diagnose() {
@@ -800,21 +797,12 @@ async function diagnose() {
     ].filter(Boolean);
     rows.push(line(!t.noStart && !t.tooSlow, `${name} model, last ${plural(t.count, 'request')} on this device: first reply typically ${seconds(t.firstTypical)} (slowest ${seconds(t.firstSlowest)}), done typically ${seconds(t.doneTypical)} (slowest ${seconds(t.doneSlowest)})${trouble.length ? `; ${trouble.join(', ')}` : ''}.`));
   }
-  // Build-plan question: does Kroger allow direct browser calls (CORS)?
-  // Real product search, reporting whether it went direct from this device or via the relay.
+  // A real product search, through the relay.
   try {
-    resetDirectSearch();
     const milk = (await productSearcher(relay(), prefs.store?.locationId)(['milk'])).milk;
-    const route = { direct: 'directly from this device', relay: 'through the relay', mixed: 'partly through the relay' }[lastSearchRoute()] || '';
     rows.push(Array.isArray(milk) && milk.length
-      ? line(true, `Fred Meyer product search works ${route} (${milk.length} results for "milk").`)
-      : line(false, `Fred Meyer product search failed ${route}: ${milk?.error || 'no results'}`));
-    // The relay is the normal fallback, so a failed direct search only matters when the relay failed too.
-    if (lastSearchRoute() !== 'direct' && lastDirectProblem()) {
-      rows.push(Array.isArray(milk) && milk.length
-        ? note(`Direct search from this device isn't available, so searches go through the relay. Nothing to fix. (${lastDirectProblem()})`)
-        : line(false, `Direct search from this device: ${lastDirectProblem()}.`));
-    }
+      ? line(true, `Fred Meyer product search works (${milk.length} results for "milk").`)
+      : line(false, `Fred Meyer product search failed: ${milk?.error || 'no results'}`));
   } catch (err) {
     rows.push(line(false, `Fred Meyer product search: ${err.message}`));
   }

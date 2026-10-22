@@ -181,10 +181,6 @@ test('firewall blocks: one retry, then a readable error; browser token route', a
   await kroger.searchProductsMany(env, ['once'], '1', { fetchImpl });
   assert.equal(productCalls(), before, 'product results come from the cache');
   assert.equal(kroger.describeKrogerError('/products', 500, '<html><title>Oops</title></html>'), 'Kroger /products returned 500: Oops');
-
-  const tok = await kroger.appTokenForBrowser(env, fetchImpl);
-  assert.equal(tok.access_token, 'app-token');
-  assert.ok(tok.expires_at > Date.now());
 });
 
 test('cleanTerm enforces Kroger term rules', () => {

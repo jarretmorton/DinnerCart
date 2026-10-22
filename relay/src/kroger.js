@@ -88,13 +88,6 @@ export async function getAppToken(env, fetchImpl = fetch) {
   return tokens.access_token;
 }
 
-// The client-credentials token (product.compact only: read-only product
-// data, no cart or account access), so the browser can search directly.
-export async function appTokenForBrowser(env, fetchImpl = fetch) {
-  const access_token = await getAppToken(env, fetchImpl);
-  return { access_token, expires_at: memoryAppToken.expires_at };
-}
-
 export function resetMemoryToken() {
   memoryAppToken = null;
 }

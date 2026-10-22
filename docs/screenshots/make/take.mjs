@@ -127,7 +127,6 @@ function relay(method, path, body) {
   if (path === '/prefs') return { prefs: { store: { locationId: '70100123', name: 'Fred Meyer Hawthorne', address: '3805 SE Hawthorne Blvd, Portland, OR' }, servings: 4, maxMinutes: 45, pantry: ['salt', 'black pepper', 'olive oil'], leaveOut: ['mushrooms'], minRating: 4 } };
   if (path === '/library') return method === 'GET' ? { recipes: [] } : { recipe: body.recipe };
   if (path === '/kroger/status') return { connected: true };
-  if (path === '/kroger/token') return { access_token: 'tok', expires_at: Date.now() + 1_800_000 };
   if (path === '/search') return { results: Object.keys(RECIPES).map((url) => ({ url, title: RECIPES[url].name })) };
   if (path === '/recipe') return { recipe: RECIPES[body.url] };
   return {};

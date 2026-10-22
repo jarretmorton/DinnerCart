@@ -15,7 +15,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createGemini, DEFAULT_MODEL } from '../web/js/gemini.js';
-import { relaySearcher } from '../web/js/kroger.js';
+import { productSearcher } from '../web/js/kroger.js';
 import { createRelay } from '../web/js/relay.js';
 import { resolveIngredients } from '../web/js/resolver.js';
 import { scoreCase, summarize } from './score.mjs';
@@ -61,8 +61,7 @@ let cache = {};
 if (useCache) {
   try { cache = JSON.parse(await readFile(cacheFile, 'utf8')); } catch { /* first run */ }
 }
-// Relay only: the eval runs on servers, not a phone.
-const live = relaySearcher(relay, locationId);
+const live = productSearcher(relay, locationId);
 async function searchProducts(terms) {
   const out = {};
   const missing = [];

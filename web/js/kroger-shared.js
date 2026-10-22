@@ -1,7 +1,5 @@
-// Kroger product helpers shared by the browser (direct product search) and
-// the relay (relay/src/kroger.js imports this file; wrangler bundles it).
-
-export const KROGER_API = 'https://api.kroger.com/v1';
+// Kroger product and store helpers for the relay (relay/src/kroger.js
+// imports this file; wrangler bundles it). The browser uses isZip.
 
 export function normalizeProduct(p) {
   const item = p.items?.[0] || {};

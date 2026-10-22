@@ -48,7 +48,6 @@ const routes = {
   'GET /kroger/status': async (_req, env) => kroger.userStatus(env),
 
   // Search-only token so the browser can query Kroger products itself.
-  'GET /kroger/token': async (_req, env) => kroger.appTokenForBrowser(env),
 
   'POST /kroger/oauth/start': async (req, env) => {
     const body = await readJson(req);

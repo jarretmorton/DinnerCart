@@ -35,8 +35,7 @@ product photos. Retake them with `docs/screenshots/make/take.mjs`.</sub>
  filter (time, rating, leave-out, Easy)                      (cached in KV)
           ─► Gemini: rank, user picks
  ingredients ─► Gemini: normalize lines
-          ─► Kroger API, straight from the phone (search-only token from /kroger/token)
-             or, if that fails ────────────────► /kroger/products ─► Kroger API
+          ─────────────────────────────────────► /kroger/products ─► Kroger API
           ─► Gemini: choose product + count
  review screen (swap / remove / qty)
           ─────────────────────────────────────► /kroger/cart ─► PUT /cart/add
@@ -65,7 +64,7 @@ single-use `state` value.
 | `web/js/library.js` | Save tab grouping (This week / Last week / Last 30 days / Older). |
 | `web/js/config.js` | The relay URL, filled in at deploy from the `RELAY_URL` repository variable. |
 | `web/js/setup-link.js` | The "Share setup link" that sets up another phone in one tap. |
-| `web/js/kroger.js`, `web/js/kroger-shared.js` | Direct-from-browser product search with relay fallback; product formatting shared with the relay. |
+| `web/js/kroger.js`, `web/js/kroger-shared.js` | Product search and store lookup through the relay; product and store formatting used by the relay. |
 | `web/js/icons.js` | The app's line icons. |
 | `web/js/version.js` | App version shown in the header. |
 | `web/styles.css`, `web/fonts/` | Design tokens and styles (light and night), self-hosted fonts. |
@@ -158,7 +157,7 @@ app's Config tab and stored only in that browser's localStorage.
 ### 6. In the app
 
 1. Open the site → **Config**. Enter the relay password and Gemini key, then **Save**. The relay URL is already built in (leave it blank) if you set `RELAY_URL`.
-2. Press **Check setup**. It checks the relay, the Worker secrets, Gemini, and whether Kroger allows direct browser calls (CORS).
+2. Press **Check setup**. It checks the relay, the Worker secrets, Gemini, and a real Fred Meyer product search.
 3. Under **Household (shared)**, press **Connect Fred Meyer** and log in once. The refresh token is stored in Workers KV and shared by both of you.
 4. Enter your ZIP → **Find stores** → choose your Fred Meyer, and choose pickup or delivery.
 5. Set the search defaults (max time, servings, minimum rating), your "what to leave out" list, your shopping preferences (optional, see *Pick and send*), and the pantry staples list. Pantry items are never added to the cart.
@@ -369,7 +368,6 @@ All routes need `X-Relay-Password`, except the OAuth callback.
 | `GET /kroger/locations` | `?zip=97214` | Fred Meyer stores within 25 miles (all Kroger-family stores if there are none) |
 | `POST /kroger/cart` | `{items: [{upc, quantity}], modality}` | `{added, batches}` (batches of 25) |
 | `GET /kroger/status` | | `{connected, connectedAt}` |
-| `GET /kroger/token` | | short-lived search-only token (`product.compact`, no cart access) so the browser can search Kroger directly |
 | `POST /kroger/oauth/start` | `{returnTo}` | `{url}` to send the browser to |
 | `GET /kroger/oauth/callback` | (from Kroger) | redirects back to the app |
 | `POST /kroger/disconnect` | | forgets the stored tokens |
@@ -387,7 +385,7 @@ the original page's instructions, and always links to the source page.
 ## Known constraints
 
 - The Kroger cart is write-only (see above). It allows about 5,000 cart calls per day, and DinnerCart uses one call per 25 items.
-- Kroger's API sits behind a bot firewall that sometimes blocks Cloudflare's shared servers ("403 Access Denied"). So the app searches products and looks up stores **directly from the phone**, using a search-only token from the relay in the web address (Kroger allows browser requests, but refuses the CORS preflight a header would need), and falls back to the relay (per item for products) if that fails. **Check setup** shows which path is working and, if direct search fails, why. Relay requests identify the app, run 2 product searches at a time, retry once after a firewall block and then stop for that request, and cache product results for 6 hours.
+- Kroger's API sits behind a bot firewall that sometimes blocks Cloudflare's shared servers ("403 Access Denied"). The phone can't go around it: Kroger answers browsers but doesn't send the CORS header they need to read the answer (checked October 2026; the app used to search from the phone and now goes through the relay only). Relay requests identify the app, run 2 product searches at a time, retry once after a firewall block and then stop for that request, and cache product results for 6 hours.
 - Pages that block bots or have no `schema.org/Recipe` markup are skipped. They're listed under "couldn't be read" with the reason.
 - Free Cloudflare Workers get 10 ms of CPU per request. That's why each recipe page is parsed in its own request.
 - Cook needs the recipe page to publish its steps in `schema.org/Recipe` markup; pages that don't just link to the original. Gemini's rewrite is checked for missing ingredients and temperatures, but it can still get something wrong, so glance at the original for anything critical.
@@ -400,14 +398,14 @@ the original page's instructions, and always links to the source page.
 
 ## Build plan status
 
-- [x] Kroger: OAuth (authorization code + refresh), product search, location search, batched cart add through the relay. Finding: Kroger *does* allow browser CORS (a direct call returns HTTP 401, not a CORS error), but the relay is still required because the client secret and the user tokens must not live in the browser.
+- [x] Kroger: OAuth (authorization code + refresh), product search, location search, batched cart add through the relay. The relay is required because the client secret and the user tokens must not live in the browser, and because Kroger's answers carry no CORS header for browsers.
 - [x] Ingredient resolver + 50-line eval set + scoring script.
 - [x] Recipe search: Brave + JSON-LD extraction in the Worker.
 - [x] UI: criteria, results, review screen, settings (Gemini key, relay password, store, pantry), plus Suggest, New, daily ideas and the Tomato & Basil design.
 - [x] Saved recipe library, plus KV caching of parsed recipes and search results.
 
 Added since: Cook (easy, scaled, checked steps with timers), the Easy filter,
-Suggest, New and daily ideas, direct-from-phone product and store search,
+Suggest, New and daily ideas,
 shopping preferences and usual products, the Fred Meyer cart and orders links,
 the one-tap setup link, and deploys that work for any fork.
 

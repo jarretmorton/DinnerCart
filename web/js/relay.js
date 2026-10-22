@@ -40,7 +40,6 @@ export function createRelay({ url, password, fetchImpl = globalThis.fetch.bind(g
     locations: (zip) => call('GET', `/kroger/locations?zip=${encodeURIComponent(zip)}`),
     cartAdd: (items, modality) => call('POST', '/kroger/cart', { items, modality }),
     krogerStatus: () => call('GET', '/kroger/status'),
-    krogerToken: () => call('GET', '/kroger/token'),
     // rating: 'happy' | 'meh' | 'sad', or null to clear it.
     libraryRate: (id, rating) => call('POST', '/library/rating', { id, rating }),
     usuals: () => call('GET', '/usuals'),
