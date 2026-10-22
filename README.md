@@ -164,6 +164,8 @@ app's Config tab and stored only in that browser's localStorage.
 
 Everything under Household is saved on the relay, so both of you share it. The relay URL, password and Gemini key are per device.
 
+**Sign out** (at the bottom of This device) forgets everything DinnerCart keeps on that phone: the relay password, Gemini key and its searches, picks and list. Saved recipes, household settings and the Fred Meyer connection stay, since they belong to the household; Fred Meyer has its own **Disconnect**, which signs out both of you.
+
 ### 7. The rest of the household
 
 On a phone that's set up, go to **Config → Share setup link** and send it

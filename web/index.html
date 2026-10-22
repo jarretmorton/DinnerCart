@@ -91,7 +91,7 @@
     <section id="view-settings" class="view" hidden>
       <!-- Closed unless this device isn't set up yet (app.js opens it then). -->
       <details id="device-settings" class="card device-settings">
-        <summary><h2>This device</h2><span class="muted small-text">Relay, Gemini key and model, Check setup, setup link</span></summary>
+        <summary><h2>This device</h2><span class="muted small-text">Relay, Gemini key and model, Check setup, setup link, sign out</span></summary>
         <form id="settings-form" class="form">
           <p class="wide hint">Stored only in this browser (an app added to the home screen keeps its own). Have a setup link? <button type="button" class="small link" id="paste-setup-btn">Paste it here</button></p>
           <label class="wide">Relay URL <input name="relayUrl" type="url" placeholder="https://dinnercart-relay.YOURNAME.workers.dev"></label>
@@ -121,6 +121,10 @@
             <label class="inline-check"><input type="checkbox" id="share-gemini"> Include my Gemini key</label>
           </div>
           <p class="wide hint">Sets up another phone in your household with one tap. The link contains the relay password, so only send it to people in your household.</p>
+          <div class="wide actions">
+            <button type="button" class="drop" id="sign-out-btn">Sign out</button>
+          </div>
+          <p class="wide hint">Signs this phone out: forgets the relay password, Gemini key and everything DinnerCart keeps here. Saved recipes, household settings and the Fred Meyer connection stay for the rest of the household.</p>
         </form>
       </details>
 

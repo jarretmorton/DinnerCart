@@ -65,6 +65,16 @@ const RETIRED_KEY = 'dinnercart.retiredModels';
 export const loadRetiredModels = () => read(RETIRED_KEY, []);
 export const addRetiredModel = (name) => write(RETIRED_KEY, [...new Set([...loadRetiredModels(), name])]);
 
+// Sign out: forget everything DinnerCart keeps on this device (all its
+// keys start with "dinnercart."). Household data on the relay stays.
+export function clearDevice() {
+  try {
+    for (const k of Object.keys(localStorage)) if (k.startsWith('dinnercart.')) localStorage.removeItem(k);
+  } catch (err) {
+    console.warn('localStorage clear failed', err);
+  }
+}
+
 // Today's Gemini-generated "What sounds good?" ideas: {date, ideas}.
 export const loadIdeas = () => read(IDEAS_KEY, null);
 export const saveIdeas = (v) => write(IDEAS_KEY, v);

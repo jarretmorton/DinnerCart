@@ -1023,6 +1023,19 @@ $('#kroger-disconnect').addEventListener('click', async () => {
   if (!ok) $('#kroger-disconnect').classList.remove('on');
 });
 
+// Sign out of this phone only; the household's data on the relay stays.
+$('#sign-out-btn').addEventListener('click', async () => {
+  await painted();
+  if (!confirm('Sign out on this phone? It forgets the relay password, Gemini key and this phone\'s searches, picks and list. Saved recipes, household settings and Fred Meyer stay for the rest of the household.')) {
+    $('#sign-out-btn').classList.remove('on');
+    return;
+  }
+  storage.clearDevice();
+  // A fresh start, so nothing signed-in lingers in memory; opens on Config.
+  history.replaceState(null, '', `${location.pathname}#settings`);
+  location.reload();
+});
+
 $('#settings-form').addEventListener('input', () => $('#device-save').classList.remove('on'));
 $('#prefs-form').addEventListener('input', () => $('#prefs-save').classList.remove('on'));
 $('#settings-form').addEventListener('submit', async (e) => {
