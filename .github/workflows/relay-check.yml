@@ -59,6 +59,19 @@ jobs:
               return null;
             }
           }
+          // The CORS preflight a browser sends before each call.
+          async function preflight(method, path) {
+            try {
+              const res = await fetch(`${base}${path}`, { method: 'OPTIONS', headers: { origin: process.env.ORIGIN, 'access-control-request-method': method, 'access-control-request-headers': 'x-relay-password,content-type' }, signal: AbortSignal.timeout(30_000) });
+              const allow = res.headers.get('access-control-allow-origin') || 'MISSING';
+              if (!res.ok || allow === 'MISSING') failed = true;
+              console.log(`OPTIONS ${path} (for ${method}) -> ${res.status} · CORS ${allow} · allows headers: ${res.headers.get('access-control-allow-headers') || 'none'}`);
+            } catch (err) {
+              failed = true;
+              console.log(`OPTIONS ${path} -> no answer: ${err.message}`);
+            }
+          }
+          for (const [m, p] of [['GET', '/health'], ['GET', '/kroger/token'], ['POST', '/kroger/products']]) await preflight(m, p);
           await call('GET', '/health');
           const prefs = await call('GET', '/prefs');
           await call('GET', '/kroger/token');
