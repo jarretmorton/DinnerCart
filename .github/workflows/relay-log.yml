@@ -1,0 +1,67 @@
+name: Relay log
+
+# Run by hand (Actions → Relay log → Run workflow), then use the app for a
+# minute or two: this watches the relay's live log (wrangler tail) and prints
+# one line per request: time, route, the Cloudflare location (colo) that ran
+# it, and how it ended, including failures a browser only sees as "Failed to
+# fetch" (exceeded CPU, crashed). Prints no headers, query strings or tokens
+# (the repository and its logs may be public).
+on:
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: How long to watch
+        default: "4"
+
+jobs:
+  tail:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+        working-directory: relay
+      - name: Watch the relay's log
+        working-directory: relay
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          MINUTES: ${{ inputs.minutes }}
+        run: |
+          echo "Watching for ${MINUTES} min. Use the app now (Config → Check setup)."
+          timeout "$(( ${MINUTES:-4} * 60 ))" npx wrangler tail dinnercart-relay --format json > tail.json 2> tail.err || true
+          node --input-type=module <<'EOF'
+          import { readFileSync } from 'node:fs';
+          // wrangler prints one pretty-printed JSON object per request.
+          const text = readFileSync('tail.json', 'utf8');
+          const events = [];
+          let depth = 0, start = -1, inString = false, escaped = false;
+          for (let i = 0; i < text.length; i++) {
+            const ch = text[i];
+            if (inString) {
+              if (escaped) escaped = false;
+              else if (ch === '\\') escaped = true;
+              else if (ch === '"') inString = false;
+            } else if (ch === '"') inString = true;
+            else if (ch === '{') { if (depth++ === 0) start = i; }
+            else if (ch === '}' && --depth === 0) {
+              try { events.push(JSON.parse(text.slice(start, i + 1))); } catch { /* skip a partial one */ }
+            }
+          }
+          for (const e of events) {
+            const req = e.event?.request || {};
+            let path = '?';
+            try { path = new URL(req.url).pathname; } catch { /* not a request event */ }
+            const when = new Date(e.eventTimestamp || Date.now()).toISOString().slice(11, 19);
+            const status = e.event?.response?.status ?? '-';
+            const extra = [
+              ...(e.exceptions || []).map((x) => `exception ${x.name}: ${String(x.message).slice(0, 200)}`),
+              ...(e.logs || []).map((l) => `${l.level}: ${[].concat(l.message).map(String).join(' ').slice(0, 200)}`),
+            ];
+            console.log(`${when} ${req.method || ''} ${path} · colo ${req.cf?.colo || '?'} · ${e.outcome} · status ${status}${extra.length ? `\n    ${extra.join('\n    ')}` : ''}`);
+          }
+          console.log(`${events.length} requests seen.`);
+          EOF
+          if [ -s tail.err ]; then echo "--- wrangler said:"; grep -v -i 'token' tail.err | tail -20; fi
