@@ -24,6 +24,8 @@ const FM_CART_URL = 'https://www.fredmeyer.com/cart';
 const FM_ORDERS_URL = 'https://www.fredmeyer.com/mypurchases';
 const extLink = (url, text) => `<a class="ext" href="${url}" target="_blank" rel="noopener">${text}${icon('external')}</a>`;
 const fmLinks = () => `<div class="fm-links">${extLink(FM_CART_URL, 'Fred Meyer cart')}${extLink(FM_ORDERS_URL, 'Fred Meyer orders')}</div>`;
+// The bottom card on Pick, cut down to the Fred Meyer links while there's no list to send.
+const linksBar = () => `<div class="card sendbar">${fmLinks()}</div>`;
 
 let settings = storage.loadSettings();
 let prefs = storage.loadPrefs();
@@ -380,8 +382,8 @@ function renderCart() {
   const cart = state.cart;
   const storeName = prefs.store?.name;
   if (!state.selected.length && !cart) {
-    picked.innerHTML = `<div class="card"><h2>Nothing picked yet</h2><p class="muted">Pick recipes from <a href="#find">Search</a> or <a href="#recipes">Save</a></p>${fmLinks()}</div>`;
-    $('#cart').innerHTML = '';
+    picked.innerHTML = `<div class="card"><h2>Nothing picked yet</h2><p class="muted">Pick recipes from <a href="#find">Search</a> or <a href="#recipes">Save</a></p></div>`;
+    $('#cart').innerHTML = linksBar();
     return;
   }
   picked.innerHTML = `
@@ -408,7 +410,7 @@ function renderShoppingList() {
   // Servings edits only redraw from here.
   $('[data-action="build-cart"]')?.classList.toggle('on', listMatchesPicks());
   if (!cart) {
-    el.innerHTML = '';
+    el.innerHTML = linksBar();
     return;
   }
   const active = cart.items.filter((i) => !i.removed);

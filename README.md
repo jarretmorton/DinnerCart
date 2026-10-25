@@ -300,8 +300,9 @@ like the ones you loved and steers clear of anything like the ones you didn't.
 3. Press **Add to Fred Meyer cart**, then use the **Fred Meyer cart** link
    below it to review and check out, and **Fred Meyer orders** to see past and
    current orders (Kroger's API can't read orders, so this opens Fred Meyer's
-   purchases page). On phones these usually open the Fred Meyer app. The
-   recipes you sent are saved to the **Save** tab automatically.
+   purchases page). On phones these usually open the Fred Meyer app. Both
+   links stay at the bottom of Pick even when there's no list. The recipes
+   you sent are saved to the **Save** tab automatically.
 
 The Kroger cart API is **write-only**: DinnerCart can add items but can't see
 or remove them. If you press *Send again*, the items are added a second time,
