@@ -192,7 +192,8 @@ and paste a setup link from **Share setup link**, or type the settings in.
 Four tabs: **Search**, **Pick** (this shop's recipes and shopping list),
 **Save** (your shared recipes) and **Config**. On narrow screens the tabs show
 icons only. The app opens on Search (Config until it's set up); a reload
-stays on the tab you were on.
+stays on the tab you were on, except Config. An app left on Config in the
+background for 10 minutes or more also comes back on Search.
 
 **Buttons:** green moves you forward (Search, Pick, Cook, Match, Add to
 Fred Meyer cart); lemon keeps (Save on a recipe, the Config Saves); red

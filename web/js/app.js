@@ -1131,16 +1131,32 @@ function applySetupLink(hash = location.hash) {
 }
 
 // Opening the app starts on Search (a home-screen app can come back on
-// whatever tab it was left on). A reload, the Fred Meyer login coming back,
-// a setup link and the boot check's retry keep their tab; until the app is
-// set up it opens on Config.
+// whatever tab it was left on). A reload keeps its tab, except Config, which
+// is somewhere to visit, not to come back to (an iPhone home-screen app can
+// reopen as a reload). The Fred Meyer login coming back, a setup link and
+// the boot check's retry keep their tab; until the app is set up it opens
+// on Config.
 function startOnSearch() {
   const nav = performance.getEntriesByType?.('navigation')[0]?.type;
   const params = new URLSearchParams(location.search);
-  if (nav === 'reload' || nav === 'back_forward' || params.has('kroger') || params.has('r')) return;
+  if (params.has('kroger') || params.has('r')) return;
   if (!configured() || readSetupLink(location.hash) || !location.hash || location.hash === '#find') return;
+  if ((nav === 'reload' || nav === 'back_forward') && location.hash !== '#settings') return;
   history.replaceState(null, '', `${location.pathname}${location.search}#find`);
 }
+
+// A home-screen app often isn't reloaded at all, just shown again: back
+// after a while on Config, go to Search too.
+const RESUME_TO_SEARCH_MS = 10 * 60_000;
+let hiddenAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    hiddenAt = Date.now();
+    return;
+  }
+  if (hiddenAt && Date.now() - hiddenAt >= RESUME_TO_SEARCH_MS && location.hash === '#settings' && configured()) location.hash = 'find';
+  hiddenAt = 0;
+});
 
 function handleOAuthReturn() {
   const params = new URLSearchParams(location.search);
